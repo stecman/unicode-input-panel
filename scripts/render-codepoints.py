@@ -177,94 +177,6 @@ class TextLineRenderer:
         return im
 
 
-class UnicodeNameDb:
-    def __init__(self, unicode_data_path, unicode_blocks_path):
-        self.unicode_data_path = unicode_data_path
-        self.unicode_blocks_path = unicode_blocks_path
-        self.has_loaded = False
-
-        self.codepoints = {}
-
-    def get(self, codepoint):
-        """
-        Get the block name and shortened character name for a codepoint
-        Returns (block_name: str, codepoint_name: str)
-        """
-        if not self.has_loaded:
-            self.__load()
-            self.has_loaded = True
-
-        if 0xE000 <= codepoint <= 0xF8FF:
-            return "Private Use Area", "[Not assigned by Unicode]"
-
-        if 0xF0000 <= codepoint <= 0xFFFFF:
-            return "Supl. Private Use Area A", "[Not assigned by Unicode]"
-
-        if 0x100000 <= codepoint <= 0x10FFFF:
-            return "Supl. Private Use Area B", "[Not assigned by Unicode]"
-
-        try:
-            return self.codepoints[codepoint]
-        except KeyError:
-            return "NOT REGISTERED", "Codepoint %X" % codepoint
-
-    def __load(self):
-        block_index = 0
-        blocks = []
-
-        # Read block range names
-        with open(self.unicode_blocks_path, 'r') as handle:
-            for line in handle:
-                if line.startswith('#') or line.strip() == "":
-                    continue
-
-                match = re.match(r'^([0-9A-Fa-f]+)\.\.([0-9A-Fa-f]+);\W*(.*)$', line)
-                start, end, name = match.group(1, 2, 3)  # type: ignore
-                blocks.append((int(start, 16), int(end, 16), name))
-
-        # Read codepoint names
-        with open(self.unicode_data_path, 'r') as handle:
-            for line in handle:
-                fields = line.split(';')
-
-                codepoint = int(fields[0], 16)
-                name = fields[1]
-
-                if name == '<control>':
-                    name = fields[10]
-
-                # Move to the next block if our codepoint is past the end of this block
-                while blocks[block_index][1] < codepoint:
-                    block_index += 1
-
-                group_name = blocks[block_index][2]
-
-
-                # Try to shorten the character name if it repeats the group name
-                matcher = difflib.SequenceMatcher(None, group_name.lower(), name.lower())
-                pos_a, pos_b, size = matcher.find_longest_match(0, len(group_name), 0, len(name))
-
-                if size >= 3 and pos_b == 0:
-                    words_a = group_name[pos_a:].lower().split(" ")
-                    words_b = name.lower().split(" ")
-                    trim_chars = 0
-
-                    for a, b in zip(words_a, words_b):
-                        if a == b or a == (b + 's') or a == (b + "-1"):
-                            # This assumes there are single spaces, but should be ok...
-                            trim_chars += len(b) + 1
-
-                    short_name = name[trim_chars:]
-                else:
-                    short_name = name
-
-                # Shorten specific words
-                group_name = group_name.replace('Miscellaneous', 'Misc.')
-
-                self.codepoints[codepoint] = (group_name, short_name or "[Not named]")
-
-
-
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
@@ -289,13 +201,15 @@ If a codepoint is in multiple fonts, the first font with that codepoint is used.
     args = parser.parse_args()
 
     text_pen = TextLineRenderer(args.metadata_font)
+
+    from namedb import UnicodeNameDb
     name_db = UnicodeNameDb(args.code_data, args.block_data)
-    name_db.get(1)
 
     os.makedirs(args.outdir, exist_ok=True)
     fontfiles = []
-    fontfiles += glob.glob(os.path.join(args.fonts, '*.otf'))
-    fontfiles += glob.glob(os.path.join(args.fonts, '*.ttf'))
+    #fontfiles += glob.glob(os.path.join(args.fonts, '*.otf'))
+    #fontfiles += glob.glob(os.path.join(args.fonts, '*.ttf'))
+    fontfiles += glob.glob(os.path.join(args.fonts, 'NotoSans-Regular.otf'))
 
     table = build_font_map(fontfiles)
 

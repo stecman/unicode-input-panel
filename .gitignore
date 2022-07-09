@@ -1,0 +1,4 @@
+build/
+data/
+/rust-bake-codepoints/target/
+*.pyc

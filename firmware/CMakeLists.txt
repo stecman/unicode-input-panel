@@ -1,0 +1,251 @@
+cmake_minimum_required(VERSION 3.13)
+
+include($ENV{PICO_SDK_PATH}/pico_sdk_init.cmake)
+
+project(unicode-switch-panel C CXX)
+
+pico_sdk_init()
+
+include($ENV{PICO_SDK_PATH}/pico_sdk_init.cmake)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_C_STANDARD 11)
+
+# Make CMake's install command a no-op
+# This is required as the install tasks in libpng's CMakeLists otherwise break configuration
+macro(install)
+endmacro(install)
+
+
+#
+# Download libraries and resources using CMake's FetchContent
+#
+
+include(FetchContent)
+set(FETCHCONTENT_QUIET FALSE)
+
+# Source dependencies
+FetchContent_Declare(freetype URL https://download.savannah.gnu.org/releases/freetype/freetype-2.12.1.tar.gz)
+FetchContent_Declare(harfbuzz URL https://github.com/harfbuzz/harfbuzz/releases/download/3.4.0/harfbuzz-3.4.0.tar.xz)
+FetchContent_Declare(libpng URL https://cytranet.dl.sourceforge.net/project/libpng/libpng16/1.6.37/libpng-1.6.37.tar.xz)
+FetchContent_Declare(unicode_blocks URL https://unicode.org/Public/UNIDATA/Blocks.txt DOWNLOAD_NO_EXTRACT TRUE)
+FetchContent_Declare(unicode_codepoints URL https://unicode.org/Public/UNIDATA/UnicodeData.txt DOWNLOAD_NO_EXTRACT TRUE)
+FetchContent_Declare(zlib URL https://versaweb.dl.sourceforge.net/project/libpng/zlib/1.2.11/zlib-1.2.11.tar.xz)
+
+
+# Unicode data files
+if(NOT unicode_blocks_POPULATED)
+	FetchContent_Populate(unicode_blocks)
+endif()
+
+if (NOT unicode_codepoints_POPULATED)
+	FetchContent_Populate(unicode_codepoints)
+endif()
+
+
+# zlib (required for libpng)
+FetchContent_GetProperties(zlib)
+if(NOT zlib_POPULATED)
+	FetchContent_Populate(zlib)
+endif()
+
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+
+add_subdirectory(${zlib_SOURCE_DIR} ${zlib_BINARY_DIR} EXCLUDE_FROM_ALL)
+
+
+# libpng (for drawing PNG glyphs like colour emoji)
+FetchContent_GetProperties(libpng)
+if(NOT libpng_POPULATED)
+	FetchContent_Populate(libpng)
+endif()
+
+set(PNG_BUILD_ZLIB ${zlib_SOURCE_DIR} ${zlib_BINARY_DIR} CACHE INTERNAL "")
+set(ZLIB_INCLUDE_DIR ${zlib_SOURCE_DIR} ${zlib_BINARY_DIR} CACHE INTERNAL "")
+set(PNG_SHARED OFF CACHE INTERNAL "")
+set(PNG_TESTS OFF CACHE INTERNAL "")
+
+add_subdirectory(${libpng_SOURCE_DIR} ${libpng_BINARY_DIR} EXCLUDE_FROM_ALL)
+
+
+# FreeType2
+FetchContent_GetProperties(freetype)
+if(NOT freetype_POPULATED)
+	FetchContent_Populate(freetype)
+endif()
+
+# Disable searches for system libraries
+set(FT_DISABLE_ZLIB TRUE CACHE INTERNAL "")
+set(FT_DISABLE_BZIP2 TRUE CACHE INTERNAL "")
+set(FT_DISABLE_PNG TRUE CACHE INTERNAL "")
+set(FT_DISABLE_HARFBUZZ TRUE CACHE INTERNAL "")
+set(FT_DISABLE_BROTLI TRUE CACHE INTERNAL "")
+
+set(BUILD_SHARED_LIBS FALSE CACHE INTERNAL "")
+set(SKIP_INSTALL_LIBRARIES TRUE CACHE INTERNAL "")
+
+# Use of locally built zlib and libpng
+set(ZLIB_FOUND TRUE CACHE INTERNAL "")
+set(ZLIB_LIBRARIES zlibstatic CACHE INTERNAL "")
+set(ZLIB_INCLUDE_DIRS ${zlib_SOURCE_DIR} ${zlib_BINARY_DIR} CACHE INTERNAL "")
+
+set(PNG_FOUND TRUE CACHE INTERNAL "")
+set(PNG_LIBRARIES png_static CACHE INTERNAL "")
+set(PNG_INCLUDE_DIRS ${libpng_SOURCE_DIR} ${libpng_BINARY_DIR} CACHE INTERNAL "")
+
+add_subdirectory(${freetype_SOURCE_DIR} ${freetype_BINARY_DIR} EXCLUDE_FROM_ALL)
+
+
+# harfbuzz
+FetchContent_GetProperties(harfbuzz)
+if(NOT harfbuzz_POPULATED)
+	FetchContent_Populate(harfbuzz)
+endif()
+
+set(CMAKE_DISABLE_FIND_PACKAGE_Threads TRUE CACHE INTERNAL "Prevent Harfbuzz from looking for a threading library")
+
+add_subdirectory(${harfbuzz_SOURCE_DIR} ${harfbuzz_BINARY_DIR} EXCLUDE_FROM_ALL)
+target_compile_options(harfbuzz PUBLIC -DHB_TINY -Wno-format)
+
+
+#
+# Support embedding resources in the binary (GCC-specific)
+# Based on https://stackoverflow.com/a/56006001/1470907
+#
+
+set(RC_DEPENDS "")
+
+function(add_resource target input)
+    string(MAKE_C_IDENTIFIER ${input} input_identifier)
+    set(output "${CMAKE_CURRENT_BINARY_DIR}/${input_identifier}.o")
+    target_link_libraries(${target} ${output})
+
+    add_custom_command(
+        OUTPUT ${output}
+        COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && ${CMAKE_LINKER} --relocatable --format binary --output ${output} ${input}
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${input}
+    )
+
+    set(RC_DEPENDS ${RC_DEPENDS} ${output} PARENT_SCOPE)
+endfunction()
+
+#
+# Configure code-gen for unicode metadata
+#
+ADD_CUSTOM_COMMAND(
+	OUTPUT unicode_data_generated.c
+    COMMAND
+    	python3 ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/build-metadata.py
+        	--blocks ${unicode_blocks_SOURCE_DIR}/Blocks.txt
+        	--codepoints ${unicode_codepoints_SOURCE_DIR}/UnicodeData.txt
+        	--include unicode_data.h
+        	--output unicode_data_generated.c
+    DEPENDS
+    	${CMAKE_CURRENT_SOURCE_DIR}/../scripts/build-metadata.py
+    	${CMAKE_CURRENT_SOURCE_DIR}/../scripts/namedb.py
+    	${unicode_blocks_SOURCE_DIR}/Blocks.txt
+    	${unicode_codepoints_SOURCE_DIR}/UnicodeData.txt
+    COMMENT "Generate C source for embedding Unicode metadata"
+)
+
+# set_source_files_properties(${UNICODE_METADATA_GENERATED} PROPERTIES GENERATED TRUE)
+
+#
+# Configure firmware build
+#
+
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+add_subdirectory(fatfs_spi)
+
+set(BASE_SOURCES
+	font.cpp
+	font_indexer.cpp
+	icons.cpp
+	main_ui.cpp
+	unicode_db.cpp
+	${CMAKE_CURRENT_BINARY_DIR}/unicode_data_generated.c
+)
+
+set(HOST_SOURCES
+	host/host_main.cpp
+	host/host_filesystem.cpp
+	host/host_st7789.c
+)
+
+set(DEVICE_SOURCES
+	main.cpp
+	filesystem.cpp
+	hw_config.c
+	st7789.c
+)
+
+set(FIRMWARE_LIBS
+	freetype
+	harfbuzz
+	pico_stdlib
+	png_static
+	zlibstatic
+)
+
+if(PICO_PLATFORM STREQUAL "host")
+	# Build application for testing on host
+	add_executable(firmware ${BASE_SOURCES} ${HOST_SOURCES})
+
+	# Find and link SDL (for emulating the device's display and controls)
+	find_package(SDL2 REQUIRED)
+	include_directories(${SDL2_INCLUDE_DIRS})
+	list(APPEND FIRMWARE_LIBS ${SDL2_LIBRARIES} pthread)
+
+	# Build with max debug information
+	add_definitions(-ggdb3 -O1)
+
+else()
+	# Firmware for deployment to pico
+	add_executable(firmware ${BASE_SOURCES} ${DEVICE_SOURCES})
+
+	# Need to build the SD card driver
+	list(APPEND FIRMWARE_LIBS
+		hardware_pwm
+		hardware_spi
+		hardware_uart
+		FatFs_SPI
+	)
+
+	pico_enable_stdio_uart(firmware ENABLED)
+	pico_add_extra_outputs(firmware) # Create map/bin/hex/uf2 file in addition to ELF
+
+	# Show firmware size stats after build
+	add_custom_command(
+		TARGET firmware POST_BUILD
+		COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/size.sh
+			${CMAKE_CURRENT_BINARY_DIR}/firmware.elf 2097152 270336
+	)
+
+
+endif()
+
+# Explicitly select targets to build from libpng and zlib (since we're EXCLUDE_FROM_ALL)
+add_dependencies(png_static zlibstatic)
+add_dependencies(freetype png_static zlibstatic)
+add_dependencies(harfbuzz freetype)
+add_dependencies(firmware png_static zlibstatic freetype harfbuzz)
+
+target_include_directories(firmware PRIVATE
+    ${libpng_SOURCE_DIR}
+    ${libpng_BINARY_DIR}
+    ${zlib_SOURCE_DIR}
+    ${zlib_BINARY_DIR}
+    ${FREETYPE_INCLUDE_DIRS}
+    ${harfbuzz_SOURCE_DIR}/src # not ideal, but the harfbuzz public headers aren't exposed anywhere
+)
+
+target_link_libraries(firmware ${FIRMWARE_LIBS})
+
+# (See the Notes section in the readme for how to make a reduced-size font like this)
+add_resource(firmware "assets/OpenSans-Regular-Stripped.ttf")
+add_resource(firmware "assets/NotoSansMono-Regular-Stripped.otf")
+add_resource(firmware "assets/unicode-logo.png")
+add_resource(firmware "assets/shift-lock.png")
+
+# Build resource objects
+add_custom_target(rc ALL DEPENDS ${RC_DEPENDS})
