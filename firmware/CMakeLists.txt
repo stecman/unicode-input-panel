@@ -26,7 +26,6 @@ set(FETCHCONTENT_QUIET FALSE)
 
 # Source dependencies
 FetchContent_Declare(freetype URL https://download.savannah.gnu.org/releases/freetype/freetype-2.12.1.tar.gz)
-FetchContent_Declare(harfbuzz URL https://github.com/harfbuzz/harfbuzz/releases/download/3.4.0/harfbuzz-3.4.0.tar.xz)
 FetchContent_Declare(libpng URL https://cytranet.dl.sourceforge.net/project/libpng/libpng16/1.6.37/libpng-1.6.37.tar.xz)
 FetchContent_Declare(unicode_blocks URL https://unicode.org/Public/UNIDATA/Blocks.txt DOWNLOAD_NO_EXTRACT TRUE)
 FetchContent_Declare(unicode_codepoints URL https://unicode.org/Public/UNIDATA/UnicodeData.txt DOWNLOAD_NO_EXTRACT TRUE)
@@ -94,18 +93,6 @@ set(PNG_LIBRARIES png_static CACHE INTERNAL "")
 set(PNG_INCLUDE_DIRS ${libpng_SOURCE_DIR} ${libpng_BINARY_DIR} CACHE INTERNAL "")
 
 add_subdirectory(${freetype_SOURCE_DIR} ${freetype_BINARY_DIR} EXCLUDE_FROM_ALL)
-
-
-# harfbuzz
-FetchContent_GetProperties(harfbuzz)
-if(NOT harfbuzz_POPULATED)
-	FetchContent_Populate(harfbuzz)
-endif()
-
-set(CMAKE_DISABLE_FIND_PACKAGE_Threads TRUE CACHE INTERNAL "Prevent Harfbuzz from looking for a threading library")
-
-add_subdirectory(${harfbuzz_SOURCE_DIR} ${harfbuzz_BINARY_DIR} EXCLUDE_FROM_ALL)
-target_compile_options(harfbuzz PUBLIC -DHB_TINY -Wno-format)
 
 
 #
@@ -181,7 +168,6 @@ set(DEVICE_SOURCES
 
 set(FIRMWARE_LIBS
 	freetype
-	harfbuzz
 	pico_stdlib
 	png_static
 	zlibstatic
@@ -227,8 +213,7 @@ endif()
 # Explicitly select targets to build from libpng and zlib (since we're EXCLUDE_FROM_ALL)
 add_dependencies(png_static zlibstatic)
 add_dependencies(freetype png_static zlibstatic)
-add_dependencies(harfbuzz freetype)
-add_dependencies(firmware png_static zlibstatic freetype harfbuzz)
+add_dependencies(firmware png_static zlibstatic freetype)
 
 target_include_directories(firmware PRIVATE
     ${libpng_SOURCE_DIR}
@@ -236,7 +221,6 @@ target_include_directories(firmware PRIVATE
     ${zlib_SOURCE_DIR}
     ${zlib_BINARY_DIR}
     ${FREETYPE_INCLUDE_DIRS}
-    ${harfbuzz_SOURCE_DIR}/src # not ideal, but the harfbuzz public headers aren't exposed anywhere
 )
 
 target_link_libraries(firmware ${FIRMWARE_LIBS})

@@ -6,10 +6,6 @@
 #include <freetype/ftoutln.h>
 #include <freetype/internal/ftobjs.h>
 
-// Harfbuzz
-#include <hb.h>
-#include <hb-ft.h>
-
 // C++
 #include <algorithm>
 #include <cmath>
@@ -135,46 +131,6 @@ bool FontStore::drawGlyph(uint32_t codepoint, int adjust_y)
         printf("Failed to load face %d\n", id);
         return false;
     }
-
-    // {
-    //     hb_buffer_t *buf;
-    //     buf = hb_buffer_create();
-    //     // hb_buffer_add_utf8(buf, "\U0001f3c3\u200d\U0001f3fe", -1, 0, -1);
-    //     // hb_buffer_add_utf8(buf, "\u2764\uFE0F\u200D\U0001F525", -1, 0, -1);
-    //     hb_buffer_add_utf8(buf, "\U0001F3F4\u200D\u2620\uFE0F", -1, 0, -1);
-
-    //     hb_buffer_set_direction(buf, HB_DIRECTION_LTR);
-    //     hb_buffer_set_script(buf, HB_SCRIPT_COMMON);
-    //     hb_buffer_set_language(buf, hb_language_get_default());
-
-    //     hb_font_t *font = hb_ft_font_create(m_face, noop_destroy_func);
-
-    //     hb_shape(font, buf, NULL, 0);
-
-    //     unsigned int glyph_count;
-    //     hb_glyph_info_t *glyph_info    = hb_buffer_get_glyph_infos(buf, &glyph_count);
-    //     hb_glyph_position_t *glyph_pos = hb_buffer_get_glyph_positions(buf, &glyph_count);
-
-    //     hb_position_t cursor_x = 0;
-    //     hb_position_t cursor_y = 0;
-    //     for (unsigned int i = 0; i < glyph_count; i++) {
-    //         hb_codepoint_t glyphid  = glyph_info[i].codepoint;
-    //         hb_position_t x_offset  = glyph_pos[i].x_offset;
-    //         hb_position_t y_offset  = glyph_pos[i].y_offset;
-    //         hb_position_t x_advance = glyph_pos[i].x_advance;
-    //         hb_position_t y_advance = glyph_pos[i].y_advance;
-
-    //         /* draw_glyph(glyphid, cursor_x + x_offset, cursor_y + y_offset); */
-
-    //         // printf(" glyph: %d\n", glyphid);
-
-    //         cursor_x += x_advance;
-    //         cursor_y += y_advance;
-    //     }
-
-    //     hb_buffer_destroy(buf);
-    //     hb_font_destroy(font);
-    // }
 
     FT_Error error;
     int width = 0;
