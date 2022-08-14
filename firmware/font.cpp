@@ -5,6 +5,8 @@
 // FreeType
 #include <freetype/ftoutln.h>
 #include <freetype/internal/ftobjs.h>
+#include <freetype/tttables.h>
+#include <freetype/tttags.h>
 
 // C++
 #include <algorithm>
@@ -118,6 +120,35 @@ void noop_destroy_func(void *user_data)
     // Do nothing
 }
 
+bool find_substitutions(FT_Face m_face)
+{
+    FT_ULong length = 0;
+    FT_Error error = FT_Load_Sfnt_Table( m_face, TTAG_GSUB, 0, NULL, &length );
+    if ( error ) {
+        printf("No such table...\n");
+        return false;
+    }
+
+    printf("  Want %lu bytes...\n", length);
+    uint8_t* buffer = (uint8_t*) malloc(length);
+    if ( buffer == NULL ) {
+        printf("  Failed to malloc\n");
+        return false;
+    }
+
+    error = FT_Load_Sfnt_Table( m_face, TTAG_GSUB, 0, buffer, &length );
+    if ( error ) {
+        printf("  Failed to load table\n");
+        return false;
+    }
+
+    printf("  Loaded GSUB table!\n");
+
+    free(buffer);
+
+    return true;
+}
+
 bool FontStore::drawGlyph(uint32_t codepoint, int adjust_y)
 {
     uint32_t id = m_indexer.find(codepoint);
@@ -131,6 +162,8 @@ bool FontStore::drawGlyph(uint32_t codepoint, int adjust_y)
         printf("Failed to load face %d\n", id);
         return false;
     }
+
+    // find_substitutions(m_face);
 
     FT_Error error;
     int width = 0;
