@@ -177,7 +177,11 @@ bool FontStore::drawGlyph(uint32_t codepoint, int adjust_y)
                   218, 218 // Device resolution
             );
 
-            error = FT_Load_Char(m_face, codepoint, FT_LOAD_DEFAULT | FT_LOAD_COMPUTE_METRICS);
+            // Load without auto-hinting, since hinting data isn't used with FT_Outline_Render
+            // and auto-hinting can be memory intensive on complex glyphs. FT_LOAD_NO_HINTING
+            // appears to make the font metrics inaccurate so I'm not using that here.
+            const uint flags = FT_LOAD_DEFAULT | FT_LOAD_COMPUTE_METRICS | FT_LOAD_NO_AUTOHINT;
+            error = FT_Load_Char(m_face, codepoint, flags);
 
             // Get dimensions, rouded up
             // Since we're using COMPUTE_METRICS, this should be correct regardless of the font contents
@@ -442,6 +446,8 @@ static void raster_pen_line(
     const uint8_t pen_g = state->colour >> 8;
     const uint8_t pen_b = state->colour;
 
+    const int16_t offset_x = state->screen_x >= 0 ? 0 : state->screen_x;
+
     for (int i = 0; i < count; ++i) {
         const auto &span = spans[i];
 
@@ -451,13 +457,13 @@ static void raster_pen_line(
         const uint8_t g = (pen_g * span.coverage) >> 8;
         const uint8_t b = (pen_b * span.coverage) >> 8;
 
-        int16_t x = (state->buf_x + span.x);
-        const int16_t end_x = x + span.len;
+        int16_t x = offset_x + state->buf_x + span.x;
+        const int16_t end_x = std::min(x + span.len, state->width - 1);
 
         uint8_t* local_buf = x < 0 ? line_buf : line_buf + (x * 3);
 
-        while (x < end_x && x < state->width) {
-            if (x > 0) {
+        while (x < end_x) {
+            if (x >= 0) {
                 if (local_buf >= line_buf_end) {
                     break;
                 }
@@ -499,12 +505,6 @@ static void raster_callback_line(const int y, const int count, const FT_Span* co
     uint8_t* buf = st7789_line_buffer();
     const uint8_t* buf_end = buf + ST7789_LINE_BUF_SIZE - 1;
     memset(buf, 0, ST7789_LINE_BUF_SIZE);
-
-    const int16_t line_start = spans[0].x;
-    const int16_t line_end = std::min(
-        ST7789_LINE_LEN_PX,
-        spans[count-1].x + spans[count-1].len
-    );
 
     raster_pen_line(state, buf, buf_end, count, spans);
 
@@ -584,6 +584,10 @@ uint16_t UIFontPen::compute_px_width(const char* str)
         }
     }
 
+    if (px_width != 0) {
+        px_width += 1;
+    }
+
     return px_width;
 }
 
@@ -606,11 +610,13 @@ UIRect UIFontPen::draw(const char* str, const uint16_t canvas_width_px)
     }
 
     // Constrain canvas to available dimensions at pen position
-    // The height is cheated a bit here, as it doesn't account for the
-    // font's baseline, meaning we lose the bottom of some characters
-    const int16_t px_width = std::min((int16_t)(DISPLAY_WIDTH - m_x + 1), (int16_t)canvas_width_px);
+    const int16_t px_width = m_x >= 0
+        ? std::min(DISPLAY_WIDTH -  m_x, static_cast<int>(canvas_width_px))
+        : std::min(canvas_width_px + m_x, DISPLAY_WIDTH);
+
+    // printf("%d\n", px_width);
+
     const int16_t px_height = m_size_px + (m_embolden/64) - (m_face->descender/64);
-    // const int16_t px_height = (m_face->height/64) + (m_embolden/64);
 
     const uint16_t canvas_bytes = px_width * px_height * 3;
 
@@ -651,9 +657,11 @@ UIRect UIFontPen::draw(const char* str, const uint16_t canvas_width_px)
         return UIRect();
     }
 
+    const int16_t offset_x = m_x >= 0 ? 0 : m_x;
+
     uint16_t index = 0;
     while (str[index] != '\0') {
-        if (state.buf_x >= DISPLAY_WIDTH - 1) {
+        if (offset_x + state.buf_x >= (state.width - 1)) {
             break;
         }
 
@@ -666,7 +674,9 @@ UIRect UIFontPen::draw(const char* str, const uint16_t canvas_width_px)
                 FT_Outline_Embolden(&slot->outline, m_embolden);
             }
 
-            FT_Outline_Render(m_ft_library, &slot->outline, &params);
+            if (m_x + state.buf_x + slot->advance.x >= 0) {
+                FT_Outline_Render(m_ft_library, &slot->outline, &params);
+            }
         }
 
         state.buf_x += slot->advance.x / 64;
@@ -675,7 +685,9 @@ UIRect UIFontPen::draw(const char* str, const uint16_t canvas_width_px)
 
     // Send rendered line to screen if needed
     if (m_mode == UIFontPen::kMode_CanvasBuffer) {
-        st7789_set_window(m_x, m_y, m_x + px_width, m_y + px_height);
+        const uint render_x = m_x >= 0 ? m_x : 0;
+
+        st7789_set_window(render_x, m_y, render_x + px_width, m_y + px_height);
         st7789_write_dma(state.buffer, px_width * px_height * 3, true);
 
         // Ensure writing completes before we deallocate the buffer
@@ -687,13 +699,13 @@ UIRect UIFontPen::draw(const char* str, const uint16_t canvas_width_px)
     // Absorb the total pen movement into our state
     m_x += state.buf_x;
 
-    return UIRect(state.screen_x + 1, state.screen_y, state.width, state.height + 1);
+    return UIRect(state.screen_x, state.screen_y, canvas_width_px, state.height + 1);
 }
 
-void UIRect::clamp(uint16_t min_x, uint16_t min_y, uint16_t max_x, uint16_t max_y)
+void UIRect::clamp(int16_t min_x, int16_t min_y, int16_t max_x, int16_t max_y)
 {
-    const uint16_t x2 = std::min(static_cast<uint16_t>(x + width), max_x);
-    const uint16_t y2 = std::min(static_cast<uint16_t>(y + height), max_y);
+    const int16_t x2 = std::min(static_cast<int16_t>(x + width), max_x);
+    const int16_t y2 = std::min(static_cast<int16_t>(y + height), max_y);
 
     x = std::max(x, min_x);
     y = std::max(y, min_y);
@@ -725,19 +737,22 @@ void UIRect::draw_outline_debug(uint32_t colour) const
         return;
     }
 
-    for (uint16_t draw_y = y; draw_y < (y + height - 1); draw_y++) {
-        st7789_set_cursor(x, draw_y);
+    UIRect clamped = *this;
+    clamped.clamp(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+
+    for (uint16_t draw_y = clamped.y; draw_y < (clamped.y + height - 1); draw_y++) {
+        st7789_set_cursor(clamped.x, draw_y);
         st7789_put(colour);
 
-        st7789_set_cursor(x + width - 1, draw_y);
+        st7789_set_cursor(clamped.x + clamped.width - 1, draw_y);
         st7789_put(colour);
     }
 
-    for (uint16_t draw_x = x; draw_x < (x + width - 1); draw_x++) {
-        st7789_set_cursor(draw_x, y);
+    for (uint16_t draw_x = clamped.x; draw_x < (clamped.x + clamped.width - 1); draw_x++) {
+        st7789_set_cursor(draw_x, clamped.y);
         st7789_put(colour);
 
-        st7789_set_cursor(draw_x, y + height - 1);
+        st7789_set_cursor(draw_x, clamped.y + clamped.height - 1);
         st7789_put(colour);
     }
 }

@@ -21,6 +21,8 @@ endmacro(install)
 # Download libraries and resources using CMake's FetchContent
 #
 
+add_definitions(-ggdb3)
+
 include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
 
@@ -183,7 +185,7 @@ if(PICO_PLATFORM STREQUAL "host")
 	list(APPEND FIRMWARE_LIBS ${SDL2_LIBRARIES} pthread)
 
 	# Build with max debug information
-	add_definitions(-ggdb3 -O1)
+	add_definitions(-ggdb3 -O0)
 
 else()
 	# Firmware for deployment to pico
@@ -196,6 +198,8 @@ else()
 		hardware_uart
 		FatFs_SPI
 	)
+
+	add_definitions(-DPICO_MALLOC_PANIC=0)
 
 	pico_enable_stdio_uart(firmware ENABLED)
 	pico_add_extra_outputs(firmware) # Create map/bin/hex/uf2 file in addition to ELF

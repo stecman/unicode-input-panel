@@ -22,7 +22,7 @@ struct UIRect {
         : x(0), y(0),
           width(0), height(0) {}
 
-    UIRect(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
+    UIRect(int16_t x, int16_t y, int16_t w, int16_t h)
         : x(x), y(y),
           width(w), height(h) {}
 
@@ -37,17 +37,17 @@ struct UIRect {
         height = 0;
     }
 
-    void clamp(uint16_t min_x, uint16_t min_y, uint16_t max_x, uint16_t max_y);
+    void clamp(int16_t min_x, int16_t min_y, int16_t max_x, int16_t max_y);
 
     void merge(const UIRect &other);
     UIRect& operator+=(const UIRect& other);
 
     void draw_outline_debug(uint32_t colour = 0xFF0000) const;
 
-    uint16_t x;
-    uint16_t y;
-    uint16_t width;
-    uint16_t height;
+    int16_t x;
+    int16_t y;
+    int16_t width;
+    int16_t height;
 };
 
 /**
