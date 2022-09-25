@@ -42,7 +42,10 @@ static void blank_and_invalidate(UIRect &rect)
 }
 
 MainUI::MainUI()
-    : m_block_label(nullptr),
+    : m_codepoint(0),
+      m_shift_lock(false),
+      m_codepoint_dirty(true),
+      m_block_label(nullptr),
       m_codepoint_label(nullptr)
 {
     UIRect erase_rect;
@@ -93,34 +96,81 @@ MainUI::MainUI()
     st7789_deselect();
 }
 
-void MainUI::run_demo()
+void MainUI::set_low_byte(uint8_t mask)
 {
-    #if !PICO_ON_DEVICE
-        srand(time(NULL));
-    #endif
+    const uint32_t previous = m_codepoint;
 
-    while (true) {
-        for (const auto range : m_fontstore.codepoint_ranges()) {
-            for (uint32_t codepoint = range.start; codepoint < range.end; codepoint++) {
-                // if (codepoint < 0x1DC0) continue;
-                // set_codepoint(codepoint);
-                set_codepoint(std::rand() % (0x3134F + 1));
+    // Update the low byte of the codepoint
+    m_codepoint &= 0xFFFFFF00;
+    m_codepoint |= mask;
 
+    if (m_codepoint != previous) {
+        m_codepoint_dirty = true;
+    }
+}
 
-                for (uint16_t i = 0; i < (30 * 5); i++) {
-                    sleep_ms(30);
-                    update();
-                }
-            }
-        }
+void MainUI::shift()
+{
+    const uint8_t low_byte = m_codepoint & 0xFF;
+    set_codepoint((m_codepoint << 8) | low_byte);
+}
+
+void MainUI::set_shift_lock(bool enable)
+{
+    m_shift_lock = enable;
+}
+
+bool MainUI::get_shift_lock()
+{
+    return m_shift_lock;
+}
+
+void MainUI::reset()
+{
+    m_shift_lock = false;
+    set_codepoint(m_codepoint & 0xFF);
+}
+
+void MainUI::flush_buffer()
+{
+    if (!m_shift_lock) {
+        reset();
     }
 }
 
 void MainUI::set_codepoint(uint32_t codepoint)
 {
+    if (m_codepoint != codepoint) {
+        m_codepoint_dirty = true;
+    }
+
+    m_codepoint = codepoint;
+}
+
+uint32_t MainUI::get_codepoint()
+{
+    return m_codepoint;
+}
+
+void MainUI::tick()
+{
+    render();
+}
+
+void MainUI::render() {
+    if (m_codepoint_dirty) {
+        m_codepoint_dirty = false;
+        render_codepoint();
+    }
+
+    render_scrolling_labels();
+}
+
+void MainUI::render_codepoint()
+{
     // Look up codepoint metadata
-    const char* block_name = uc_get_block_name(codepoint);
-    const char* codepoint_name = uc_get_codepoint_name(codepoint);
+    const char* block_name = uc_get_block_name(m_codepoint);
+    const char* codepoint_name = uc_get_codepoint_name(m_codepoint);
 
     bool should_render_titles = true;
 
@@ -132,13 +182,13 @@ void MainUI::set_codepoint(uint32_t codepoint)
         codepoint_name = s_unnamed_codepoint;
     }
 
-    printf("%d: %s -> %s\n", codepoint, block_name, codepoint_name);
+    printf("%d: %s -> %s\n", m_codepoint, block_name, codepoint_name);
 
     // Selectively clear anything we last drew last call
     // (except glyphs as those are automatically cleared by FontStore::drawGlyph)
     blank_and_invalidate(m_last_draw);
 
-    if (is_control_char(codepoint)) {
+    if (is_control_char(m_codepoint)) {
         // Technically valid codepoint, but has no visual representation
 
         UIFontPen pen = m_fontstore.get_pen();
@@ -155,7 +205,7 @@ void MainUI::set_codepoint(uint32_t codepoint)
         m_last_draw = pen.draw(s_control_char, text_width);
 
     } else {
-        const bool didDrawGlyph = m_fontstore.drawGlyph(codepoint, 10);
+        const bool didDrawGlyph = m_fontstore.drawGlyph(m_codepoint, 10);
 
         if (!didDrawGlyph) {
             // No glyph for the codepoint in the selected font
@@ -177,7 +227,7 @@ void MainUI::set_codepoint(uint32_t codepoint)
                 {
                     char _hex_string[12];
                     char* hex_string = (char*) &_hex_string;
-                    sprintf(hex_string, "0x%X", codepoint);
+                    sprintf(hex_string, "0x%X", m_codepoint);
 
                     pen.set_colour(kColour_White);
                     pen.set_size(44);
@@ -235,14 +285,14 @@ void MainUI::set_codepoint(uint32_t codepoint)
             pen.set_embolden(80);
 
             // Codepoint hex value
-            sprintf(str, "U+%02X", codepoint);
+            sprintf(str, "U+%02X", m_codepoint);
             text_width = pen.compute_px_width(str);
             pen.move_to(std::max(0, (((DISPLAY_WIDTH/2) - text_width)/2) + pull_towards_centre), DISPLAY_HEIGHT - 20);
             pen.set_colour(0x70d100);
             value_area = pen.draw(str);
 
             // Codepoint decimal value
-            sprintf(str, "%d", codepoint);
+            sprintf(str, "%d", m_codepoint);
             text_width = pen.compute_px_width(str);
             pen.move_to(std::max(0, (DISPLAY_WIDTH/2) - pull_towards_centre + (((DISPLAY_WIDTH/2) - text_width)/2)), DISPLAY_HEIGHT - 20);
             pen.set_colour(0x8200d1);
@@ -265,11 +315,9 @@ void MainUI::set_codepoint(uint32_t codepoint)
         m_codepoint_label.clear();
         m_codepoint_label = ScrollingLabel();
     }
-
-    update();
 }
 
-void MainUI::update()
+void MainUI::render_scrolling_labels()
 {
     UIFontPen pen = m_fontstore.get_pen();
     pen.set_size(16);
@@ -298,6 +346,7 @@ void MainUI::update()
         m_block_label.render(pen);
     }
 }
+
 
 ScrollingLabel::ScrollingLabel()
     : m_str(nullptr) {}
