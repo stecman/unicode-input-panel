@@ -27,6 +27,14 @@ struct st7789_config display_config ={
     .gpio_bl = PIN_DISP_BKLGHT
 };
 
+static volatile bool needs_render = true;
+struct repeating_timer render_timer;
+
+bool render_timer_callback(struct repeating_timer *t) {
+    needs_render = true;
+    return true;
+}
+
 int main()
 {
     stdio_uart_init_full(uart0, 115200, PIN_UART_DEBUG_TX, -1);
@@ -42,25 +50,30 @@ int main()
 	}
 
 	// Configure backlight PWM
-	{
-		gpio_set_function(PIN_DISP_BKLGHT, GPIO_FUNC_PWM);
+	// {
+	// 	gpio_set_function(PIN_DISP_BKLGHT, GPIO_FUNC_PWM);
 
-	    const uint slice_num = pwm_gpio_to_slice_num(PIN_DISP_BKLGHT);
-	    pwm_set_wrap(slice_num, 255);
-	    pwm_set_chan_level(slice_num, PWM_CHAN_A, 127);
-	    pwm_set_enabled(slice_num, true);
-	}
+	//     const uint slice_num = pwm_gpio_to_slice_num(PIN_DISP_BKLGHT);
+	//     pwm_set_wrap(slice_num, 255);
+	//     pwm_set_chan_level(slice_num, PWM_CHAN_A, 127);
+	//     pwm_set_enabled(slice_num, true);
+	// }
+
+    gpio_init(PIN_DISP_BKLGHT);
+    gpio_set_dir(PIN_DISP_BKLGHT, GPIO_OUT);
+    gpio_put(PIN_DISP_BKLGHT, 1);
 
 	// Select pins to use for SPI0
 	gpio_set_function(PIN_DISP_SPI_SCK, GPIO_FUNC_SPI);
 	gpio_set_function(PIN_DISP_SPI_TX, GPIO_FUNC_SPI);
 
 	// Enable SPI0 for screen
-	spi_init(spi0, 25e6);
+	spi_init(spi0, 32e6);
 
     const uint LED_PIN = PICO_DEFAULT_LED_PIN;
     gpio_init(LED_PIN);
     gpio_set_dir(LED_PIN, GPIO_OUT);
+
 
     // Set up and blank display
     st7789_init(&display_config, DISPLAY_WIDTH, DISPLAY_HEIGHT);
@@ -70,9 +83,26 @@ int main()
     st7789_vertical_scroll(300);
 
     MainUI app;
-    app.run_demo();
+
+    add_repeating_timer_ms(30, render_timer_callback, NULL, &render_timer);
+
+    uint32_t count = 0;
+    uint frames_passed = 0;
+
+    app.set_codepoint(count++);
 
     while (true) {
+        if (frames_passed == 60) {
+            frames_passed = 0;
+            app.set_codepoint(count++);
+        }
+
+        if (needs_render) {
+            needs_render = false;
+            frames_passed++;
+            app.render();
+        }
+
   //       gpio_put(LED_PIN, !gpio_get(0));
 
   //       const uint8_t switches = ~((uint8_t) gpio_get_all());
@@ -83,13 +113,5 @@ int main()
 		// }
 
 		// counter += direction;
-
-		// // fill += 64;
-		// // st7789_fill(fill);
-
-        gpio_put(LED_PIN, 1);
-        sleep_ms(900);
-        gpio_put(LED_PIN, 0);
-        sleep_ms(900);
     }
 }
