@@ -335,6 +335,9 @@ void MainUI::render_codepoint()
                 diff_blank(decimal_area, area);
                 decimal_area = area;
             }
+        } else {
+            blank_and_invalidate(codepoint_area);
+            blank_and_invalidate(decimal_area);
         }
     }
 
