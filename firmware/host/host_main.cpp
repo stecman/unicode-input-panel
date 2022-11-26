@@ -303,7 +303,7 @@ int main()
 
         // Poll for events (loops until there are no more events to process)
         SDL_Event event;
-        while( SDL_PollEvent( &event ) ){
+        while( SDL_WaitEventTimeout( &event, 1) ){
             switch (event.type) {
                 case SDL_KEYDOWN:
                     // Ignore repeats
