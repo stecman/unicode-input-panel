@@ -647,16 +647,19 @@ UIRect UIFontPen::draw(const char* str, const uint16_t canvas_width_px)
         ? std::min(DISPLAY_WIDTH -  m_x, static_cast<int>(canvas_width_px))
         : std::min(canvas_width_px + m_x, DISPLAY_WIDTH);
 
-    // printf("%d\n", px_width);
+    const int16_t max_height = m_size_px + (m_embolden/64) - (m_face->descender/64);
+    const int16_t px_height = m_y + max_height > DISPLAY_HEIGHT
+        ? DISPLAY_HEIGHT - m_y
+        : max_height;
 
-    const int16_t px_height = m_size_px + (m_embolden/64) - (m_face->descender/64);
+    const int baseline_correction = (px_height - max_height);
 
     const uint16_t canvas_bytes = px_width * px_height * 3;
 
 
     PenRasterState state;
     state.buf_x = 0;
-    state.baseline = (m_face->descender/64);
+    state.baseline = (m_face->descender/64) - baseline_correction;
     state.screen_x = m_x;
     state.screen_y = m_y;
     state.colour = m_colour;

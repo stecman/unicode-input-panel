@@ -9,9 +9,20 @@ public:
 
     ScrollingLabel(const char* text, int y = 0, int padding = 0);
 
-    void render(UIFontPen &pen);
-
+    /**
+     * Set the label contents to null and blank the last drawn region
+     */
     void clear();
+
+    /**
+     * Change the text and reset the scroll of this label
+     */
+    void replace(const char* text);
+
+    /**
+     * Draw the next frame of the label to screen
+     */
+    void render(UIFontPen &pen);
 
     inline const char* value()
     {

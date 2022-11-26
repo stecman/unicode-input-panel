@@ -41,12 +41,39 @@ static void blank_and_invalidate(UIRect &rect)
     }
 }
 
+/**
+ * Blank any areas where "next" didn't overlap "last"
+ * This currently assumes both rects are the same height as it was written for text labels
+ */
+static void diff_blank(UIRect &last, UIRect &next)
+{
+    if (last.is_valid()) {
+        last.clamp(0, 0, DISPLAY_WIDTH - 1, DISPLAY_HEIGHT - 1);
+        next.clamp(0, 0, DISPLAY_WIDTH - 1, DISPLAY_HEIGHT - 1);
+
+        // Clear left-hand side if the last drawing was larger
+        if (next.x > last.x) {
+            UIRect blanking = last;
+            blanking.width = next.x - last.x;
+            blanking.draw_outline_debug();
+            blank_and_invalidate(blanking);
+        }
+
+        // Clear right-hand side if the last drawing was larger
+        if ((next.x + next.width) < (last.x + last.width)) {
+            UIRect blanking = last;
+            blanking.x = (next.x + next.width);
+            blank_and_invalidate(blanking);
+        }
+    }
+}
+
 MainUI::MainUI()
     : m_codepoint(0),
       m_shift_lock(false),
       m_codepoint_dirty(true),
-      m_block_label(nullptr),
-      m_codepoint_label(nullptr)
+      m_block_label(nullptr, 0, 25),
+      m_codepoint_label(nullptr, 23, 10)
 {
     UIRect erase_rect;
 
@@ -268,52 +295,57 @@ void MainUI::render_codepoint()
 
     // Render codepoint value
     {
-        static UIRect value_area;
-        blank_and_invalidate(value_area);
+        static UIRect codepoint_area;
+        static UIRect decimal_area;
 
         if (should_render_titles) {
             const int pull_towards_centre = 10;
 
-            UIFontPen pen = m_fontstore.get_monospace_pen();
+            //UIFontPen pen = m_fontstore.get_monospace_pen();
+            UIFontPen pen = m_fontstore.get_pen();
 
             char _buf[12];
             char* str = (char*) &_buf;
             uint16_t text_width;
 
-            pen.set_render_mode(UIFontPen::kMode_DirectToScreen);
+            //pen.set_render_mode(UIFontPen::kMode_DirectToScreen);
             pen.set_size(16);
             pen.set_embolden(80);
 
             // Codepoint hex value
             sprintf(str, "U+%02X", m_codepoint);
             text_width = pen.compute_px_width(str);
-            pen.move_to(std::max(0, (((DISPLAY_WIDTH/2) - text_width)/2) + pull_towards_centre), DISPLAY_HEIGHT - 20);
+            pen.move_to(std::max(0, (((DISPLAY_WIDTH/2) - text_width)/2) + pull_towards_centre), DISPLAY_HEIGHT - 22);
             pen.set_colour(0x70d100);
-            value_area = pen.draw(str);
+
+            {
+                UIRect area(pen.draw(str));
+                diff_blank(codepoint_area, area);
+                codepoint_area = area;
+            }
 
             // Codepoint decimal value
             sprintf(str, "%d", m_codepoint);
             text_width = pen.compute_px_width(str);
-            pen.move_to(std::max(0, (DISPLAY_WIDTH/2) - pull_towards_centre + (((DISPLAY_WIDTH/2) - text_width)/2)), DISPLAY_HEIGHT - 20);
+            pen.move_to(std::max(0, (DISPLAY_WIDTH/2) - pull_towards_centre + (((DISPLAY_WIDTH/2) - text_width)/2)), DISPLAY_HEIGHT - 22);
             pen.set_colour(0x8200d1);
-            value_area += pen.draw(str);
+
+            {
+                UIRect area(pen.draw(str));
+                diff_blank(decimal_area, area);
+                decimal_area = area;
+            }
         }
     }
 
     // Render codepoint metadata
     if (should_render_titles) {
-        m_block_label.clear();
-        m_block_label = ScrollingLabel(block_name, 0, 25);
-
-        m_codepoint_label.clear();
-        m_codepoint_label = ScrollingLabel(codepoint_name, 23, 10);
+        m_block_label.replace(block_name);
+        m_codepoint_label.replace(codepoint_name);
 
     } else {
         m_block_label.clear();
-        m_block_label = ScrollingLabel();
-
         m_codepoint_label.clear();
-        m_codepoint_label = ScrollingLabel();
     }
 }
 
@@ -359,9 +391,18 @@ ScrollingLabel::ScrollingLabel(const char* text, int y, int padding)
       m_next_tick(0),
       m_state(ScrollingLabel::kState_New) {}
 
+void ScrollingLabel::replace(const char* text)
+{
+    m_str = text;
+    m_tick = 0;
+    m_next_tick = 0;
+    m_state = ScrollingLabel::kState_New;
+}
+
 void ScrollingLabel::clear()
 {
     blank_and_invalidate(m_last_draw);
+    m_str = nullptr;
 }
 
 void ScrollingLabel::render(UIFontPen &pen)
@@ -455,21 +496,7 @@ void ScrollingLabel::render(UIFontPen &pen)
         pen.move_to(m_x, m_y);
         UIRect rect(pen.draw(m_str, m_width));
 
-        // Clear left-hand side if the last drawing was larger
-        if (rect.x > 0 && rect.x > m_last_draw.x) {
-            UIRect blanking = m_last_draw;
-            blanking.width = rect.x - m_last_draw.x;
-            blanking.draw_outline_debug();
-            blank_and_invalidate(blanking);
-        }
-
-        // Clear right-hand side if the last drawing was larger
-        if ((rect.x + rect.width) < (DISPLAY_WIDTH - 1)) {
-            UIRect blanking = m_last_draw;
-            blanking.x = (rect.x + rect.width);
-            blank_and_invalidate(blanking);
-        }
-
+        diff_blank(m_last_draw, rect);
 
         m_last_draw = rect;
     }
