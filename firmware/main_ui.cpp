@@ -60,9 +60,12 @@ static void diff_blank(UIRect &last, UIRect &next)
         }
 
         // Clear right-hand side if the last drawing was larger
-        if ((next.x + next.width) < (last.x + last.width)) {
+        const int next_end_x = next.x + next.width;
+        const int last_end_x = last.x + last.width;
+        if (next_end_x  < last_end_x) {
             UIRect blanking = last;
-            blanking.x = (next.x + next.width);
+            blanking.x = next_end_x;
+            blanking.width = last_end_x - next_end_x;
             blank_and_invalidate(blanking);
         }
     }
