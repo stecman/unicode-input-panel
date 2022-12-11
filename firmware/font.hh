@@ -70,8 +70,15 @@ public:
         kMode_DirectToScreen,
     };
 
+    /**
+     * Clear any currently loaded font shared between UIFontPen instances
+     *
+     * This must be called manually after UIFontPen instances have been
+     * destructed to release the last used memory font.
+     */
+    static void unload_shared();
+
     UIFontPen(const uint8_t* fontdata, size_t length, FT_Library library);
-    ~UIFontPen();
 
     UIRect draw(const char* str);
     UIRect draw(const char* str, const uint16_t canvas_width_px);
@@ -137,8 +144,6 @@ public:
 private:
 
     FT_Library m_ft_library;
-    FT_Face m_face;
-    FT_Error m_error;
 
     int16_t m_x;
     int16_t m_y;
@@ -149,6 +154,10 @@ private:
     uint16_t m_embolden;
 
     RenderMode m_mode;
+
+    // Shared data between UIFontPen instances to avoid reloading the same font repeatedly
+    static uint8_t* ms_fontdata;
+    static FT_Face ms_face;
 };
 
 /**

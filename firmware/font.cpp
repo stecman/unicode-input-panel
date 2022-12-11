@@ -375,6 +375,7 @@ bool FontStore::loadFace(uint id)
         return true;
     }
 
+    UIFontPen::unload_shared();
     unloadFace();
 
     if (id > m_font_table.size()) {
@@ -579,10 +580,13 @@ static void raster_callback_direct(const int y, const int count, const FT_Span* 
     }
 }
 
+// Data shared between UIFontPen instances
+// This is done to avoid reloading the same font for multiple pen instances.
+uint8_t* UIFontPen::ms_fontdata = nullptr;
+FT_Face UIFontPen::ms_face = nullptr;
+
 UIFontPen::UIFontPen(const uint8_t* fontdata, size_t length, FT_Library library)
     : m_ft_library(library),
-      m_face(nullptr),
-      m_error(0),
       m_x(0),
       m_y(0),
       m_colour(0xFFFFFF),
@@ -591,32 +595,52 @@ UIFontPen::UIFontPen(const uint8_t* fontdata, size_t length, FT_Library library)
       m_embolden(0),
       m_mode(UIFontPen::kMode_CanvasBuffer)
 {
-    m_error = FT_New_Memory_Face(library, fontdata, length, 0, &m_face);
-    if (m_error) {
-        printf("Error: Embedded font load Failed: 0x%02X\n", m_error);
+    if (fontdata != ms_fontdata) {
+        UIFontPen::unload_shared();
+
+        FT_Error err = FT_New_Memory_Face(library, fontdata, length, 0, &ms_face);
+        if (err) {
+            printf("Error: Embedded font load Failed: 0x%02X\n", err);
+            ms_face = nullptr;
+            ms_fontdata = nullptr;
+        }
     }
 }
 
-UIFontPen::~UIFontPen()
+void UIFontPen::unload_shared()
 {
-    FT_Done_Face(m_face);
+    if (ms_face != nullptr) {
+        FT_Done_Face(ms_face);
+        ms_face = nullptr;
+        ms_fontdata = nullptr;
+    }
 }
 
 void UIFontPen::set_size(uint16_t size_px)
 {
+    if (ms_face == nullptr) {
+        printf("Unable to set_size width as the face is in an error state\n");
+        return;
+    }
+
     m_size_px = size_px;
-    FT_Set_Pixel_Sizes(m_face, 0, size_px);
+    FT_Set_Pixel_Sizes(ms_face, 0, size_px);
 }
 
 uint16_t UIFontPen::compute_px_width(const char* str)
 {
+    if (ms_face == nullptr) {
+        printf("Unable to compute width as the face is in an error state\n");
+        return 0;
+    }
+
     uint16_t px_width = 0;
 
     {
         uint16_t index = 0;
         while (str[index] != '\0') {
-            FT_Load_Char(m_face, str[index], FT_LOAD_DEFAULT | FT_LOAD_BITMAP_METRICS_ONLY);
-            px_width += m_face->glyph->advance.x / 64;
+            FT_Load_Char(ms_face, str[index], FT_LOAD_DEFAULT | FT_LOAD_BITMAP_METRICS_ONLY);
+            px_width += ms_face->glyph->advance.x / 64;
             index++;
         }
     }
@@ -636,7 +660,7 @@ UIRect UIFontPen::draw(const char* str)
 
 UIRect UIFontPen::draw(const char* str, const uint16_t canvas_width_px)
 {
-    if (m_error) {
+    if (ms_face == nullptr) {
         printf("Unable to draw as the face is in an error state\n");
         return UIRect();
     }
@@ -651,7 +675,7 @@ UIRect UIFontPen::draw(const char* str, const uint16_t canvas_width_px)
         ? std::min(DISPLAY_WIDTH -  m_x, static_cast<int>(canvas_width_px))
         : std::min(canvas_width_px + m_x, DISPLAY_WIDTH);
 
-    const int16_t max_height = m_size_px + (m_embolden/64) - (m_face->descender/64);
+    const int16_t max_height = m_size_px + (m_embolden/64) - (ms_face->descender/64);
     const int16_t px_height = m_y + max_height > DISPLAY_HEIGHT
         ? DISPLAY_HEIGHT - m_y
         : max_height;
@@ -663,7 +687,7 @@ UIRect UIFontPen::draw(const char* str, const uint16_t canvas_width_px)
 
     PenRasterState state;
     state.buf_x = 0;
-    state.baseline = (m_face->descender/64) - baseline_correction;
+    state.baseline = (ms_face->descender/64) - baseline_correction;
     state.screen_x = m_x;
     state.screen_y = m_y;
     state.colour = m_colour;
@@ -712,9 +736,9 @@ UIRect UIFontPen::draw(const char* str, const uint16_t canvas_width_px)
             break;
         }
 
-        FT_Load_Char(m_face, str[index], FT_LOAD_DEFAULT | FT_LOAD_NO_BITMAP);
+        FT_Load_Char(ms_face, str[index], FT_LOAD_DEFAULT | FT_LOAD_NO_BITMAP);
 
-        const auto &slot = m_face->glyph;
+        const auto &slot = ms_face->glyph;
 
         if (slot->format == FT_GLYPH_FORMAT_OUTLINE) {
             if (m_embolden != 0) {

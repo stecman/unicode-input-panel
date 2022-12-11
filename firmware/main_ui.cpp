@@ -31,7 +31,7 @@ static void blank_and_invalidate(UIRect &rect, uint8_t fill = 0x0)
 {
     if (rect.is_valid()) {
         // Limit blanking to actual screen space
-        rect.clamp(0, 0, DISPLAY_WIDTH - 1, DISPLAY_HEIGHT - 1);
+        rect.clamp(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
 
         // Fill area with black pixels
         st7789_fill_window(fill, rect.x, rect.y, rect.width, rect.height);
