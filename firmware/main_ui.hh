@@ -60,6 +60,12 @@ private:
 class MainUI {
 public:
 
+    enum DisplayMode {
+        kMode_Hex = 0,
+        kMode_Decimal,
+        kMode_END,
+    };
+
     MainUI();
 
     /**
@@ -90,6 +96,11 @@ public:
      * This holds all high bytes of the buffer across send operations
      */
     void set_shift_lock(bool enable);
+
+    /**
+     * Change to the next available display mode
+     */
+    void goto_next_mode();
 
     /**
      * Check if shift-lock is currently enabled
@@ -125,6 +136,7 @@ private:
 private: // App state
 
     uint32_t m_codepoint;
+    DisplayMode m_mode;
     bool m_shift_lock;
 
     bool m_codepoint_dirty;

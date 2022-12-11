@@ -17,6 +17,8 @@
 enum UIColour : uint32_t {
     kColour_White = 0xffffff,
     kColour_Gray = 0xa8a8a8,
+    kColour_Orange = 0xff8c00,
+    kColour_Disabled = 0x1b202d,
     kColour_Error = 0xf02708,
     kColour_BlockName = 0x00bcff,
 };
@@ -73,6 +75,7 @@ static void diff_blank(UIRect &last, UIRect &next, uint8_t fill = 0x0)
 
 MainUI::MainUI()
     : m_codepoint(0),
+      m_mode(MainUI::kMode_Hex),
       m_shift_lock(false),
       m_codepoint_dirty(true),
       m_block_label(nullptr, 0, 25),
@@ -148,6 +151,20 @@ void MainUI::shift()
 void MainUI::set_shift_lock(bool enable)
 {
     m_shift_lock = enable;
+    m_codepoint_dirty = true;
+}
+
+void MainUI::goto_next_mode()
+{
+    m_mode = static_cast<DisplayMode>(
+        static_cast<int>(m_mode) + 1
+    );
+
+    if (m_mode >= kMode_END) {
+        m_mode = static_cast<DisplayMode>(0);
+    }
+
+    m_codepoint_dirty = true;
 }
 
 bool MainUI::get_shift_lock()
@@ -291,60 +308,75 @@ void MainUI::render_codepoint()
         }
     }
 
-    // Render codepoint value
+    // Render input feedback
     {
-        static UIRect codepoint_area;
-        static UIRect decimal_area;
-        static bool needs_refill = true;
-
-        const int pull_towards_centre = 10;
-
-        //UIFontPen pen = m_fontstore.get_monospace_pen();
-        UIFontPen pen = m_fontstore.get_pen();
+        static UIRect value_area;
 
         char _buf[12];
         char* str = (char*) &_buf;
-        uint16_t text_width, active_text_width;
+        uint16_t text_width;
 
-        //pen.set_render_mode(UIFontPen::kMode_DirectToScreen);
-        pen.set_size(16);
-        pen.set_embolden(80);
-
-        // Codepoint hex value
-        sprintf(str, "U+%02X", m_codepoint);
-        text_width = pen.compute_px_width(str);
-        const uint active_index = strlen(str) - 2;
-        active_text_width = pen.compute_px_width(str + active_index);
-        pen.move_to(std::max(0, (((DISPLAY_WIDTH/2) - text_width)/2) + pull_towards_centre), DISPLAY_HEIGHT - 23);
-
+        // Codepoint value
         {
-            const char swap = str[active_index];
-            str[active_index] = '\0';
+            UIFontPen pen = m_fontstore.get_monospace_pen();
+            // UIFontPen pen = m_fontstore.get_pen();
+            pen.set_render_mode(UIFontPen::kMode_DirectToScreen);
+            pen.set_size(20);
+            pen.set_embolden(80);
 
-            pen.set_colour(0xEEEEEE);
+            if (m_mode == MainUI::kMode_Hex) {
+                // Codepoint hex value
+                sprintf(str, "U+%02X", m_codepoint);
+                text_width = pen.compute_px_width(str);
+            } else {
+                // Decimal value
+                sprintf(str, "%u", m_codepoint);
+                text_width = pen.compute_px_width(str);
+            }
+            
+            pen.move_to(DISPLAY_WIDTH/2 - text_width/2, DISPLAY_HEIGHT - 24);
 
-            UIRect area(pen.draw(str));
-
-            pen.set_colour(0xe0ca2c);
-            str[active_index] = swap;
-            area += pen.draw(str + active_index);
-
-            diff_blank(codepoint_area, area);
-            codepoint_area = area;
-
-            st7789_fill_window_colour(0xe0ca2c, pen.x() - active_text_width, DISPLAY_HEIGHT - 3, active_text_width, 2);
+            blank_and_invalidate(value_area);
+            value_area = pen.draw(str, text_width);
         }
 
-        // Codepoint decimal value
-        sprintf(str, "%u", m_codepoint);
-        text_width = pen.compute_px_width(str);
-        pen.move_to(std::max(0, (DISPLAY_WIDTH/2) - pull_towards_centre + (((DISPLAY_WIDTH/2) - text_width)/2)), DISPLAY_HEIGHT - 23);
-        pen.set_colour(0x999999);
-
+        // Flags
         {
-            UIRect area(pen.draw(str));
-            diff_blank(decimal_area, area);
-            decimal_area = area;
+            UIFontPen pen = m_fontstore.get_pen();
+            pen.set_size(12);
+            pen.set_embolden(40);
+
+            // Current mode
+            {
+                const char* text;
+                if (m_mode == MainUI::kMode_Hex) {
+                    static const char* _hex_text = "HEX";
+                    pen.set_colour(0x55b507);
+                    text = _hex_text;
+                } else {
+                    static const char* _dec_text = "DEC";
+                    pen.set_colour(0x0b89c7);
+                    text = _dec_text;
+                }
+
+                pen.move_to(22, DISPLAY_HEIGHT - 20);
+                pen.draw(text);
+            }
+
+            // Shift lock status
+            {
+                static const char* _lock_text = "LOCK";
+
+                if (m_shift_lock) {
+                    pen.set_colour(kColour_Orange);
+                } else {
+                    pen.set_colour(kColour_Disabled);
+                }
+
+                pen.move_to(DISPLAY_WIDTH - 51, DISPLAY_HEIGHT - 20);
+                pen.draw(_lock_text);
+            }
+
         }
     }
 
