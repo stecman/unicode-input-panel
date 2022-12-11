@@ -14,8 +14,8 @@ static SDL_Texture* screen_texture = NULL;
 static uint32_t* px_buffer = NULL;
 
 static uint8_t binary_input = 0;
-static bool modeclear_pending = false;
-static bool shift_pending = false;
+static SDL_TimerID modeclear_pending = 0;
+static SDL_TimerID shift_pending = 0;
 
 static MainUI* app = nullptr;
 
@@ -124,14 +124,10 @@ void handle_keydown(const SDL_KeyboardEvent &key)
 
         // Clear/Mode switch
         case SDL_SCANCODE_DELETE:
-            modeclear_pending = true;
-
             // Clear when held
-            SDL_AddTimer(500 /* milliseconds */, [](Uint32 interval, void *param) -> Uint32 {
-                if (modeclear_pending) {
-                    modeclear_pending = false;
-                    app->reset();
-                }
+            modeclear_pending = SDL_AddTimer(500 /* milliseconds */, [](Uint32 interval, void *param) -> Uint32 {
+                modeclear_pending = 0;
+                app->reset();
                 return 0;
             }, nullptr);
 
@@ -140,20 +136,16 @@ void handle_keydown(const SDL_KeyboardEvent &key)
         // Shift switch
         case SDL_SCANCODE_INSERT:
         case SDL_SCANCODE_KP_PLUS:
-            shift_pending = true;
-
             // Shift-lock when held
-            SDL_AddTimer(500 /* milliseconds */, [](Uint32 interval, void *param) -> Uint32 {
-                if (shift_pending) {
-                    shift_pending = false;
+            shift_pending = SDL_AddTimer(500 /* milliseconds */, [](Uint32 interval, void *param) -> Uint32 {
+                shift_pending = 0;
 
-                    if (app->get_shift_lock()) {
-                        app->set_shift_lock(false);
-                        printf("Cleared shift-lock\n");
-                    } else {
-                        app->set_shift_lock(true);
-                        printf("Enabled shift-lock\n");
-                    }
+                if (app->get_shift_lock()) {
+                    app->set_shift_lock(false);
+                    printf("Cleared shift-lock\n");
+                } else {
+                    app->set_shift_lock(true);
+                    printf("Enabled shift-lock\n");
                 }
                 return 0;
             }, nullptr);
@@ -177,9 +169,9 @@ void handle_keyup(const SDL_KeyboardEvent &key)
         // Clear/Mode switch
         case SDL_SCANCODE_DELETE:
             if (modeclear_pending) {
-                modeclear_pending = false;
-                // TODO: Change display mode
-                printf("Would change display mode\n");
+                SDL_RemoveTimer(modeclear_pending);
+                modeclear_pending = 0;
+                app->goto_next_mode();
             }
             break;
 
@@ -187,7 +179,8 @@ void handle_keyup(const SDL_KeyboardEvent &key)
         case SDL_SCANCODE_INSERT:
         case SDL_SCANCODE_KP_PLUS:
             if (shift_pending) {
-                shift_pending = false;
+                SDL_RemoveTimer(shift_pending);
+                shift_pending = 0;
                 app->shift();
             }
             break;
