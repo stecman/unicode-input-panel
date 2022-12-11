@@ -1,6 +1,8 @@
 #include "st7789.h"
 #include "main_ui.hh"
+#include "usb.h"
 
+// Pico SDK
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 #include "hardware/spi.h"
@@ -48,7 +50,6 @@ uint8_t get_input_byte()
 {
     return ((uint8_t) (gpio_get_all() >> 2));
 }
-
 
 /**
  * Logic for short and long presses on an active-low GPIO input
@@ -115,6 +116,132 @@ private:
     absolute_time_t m_long_press = 0;
     bool m_pressed = false;
     bool m_handled = true;
+};
+
+
+class CodepointSender
+{
+public:
+    void send(uint32_t codepoint)
+    {
+        // TODO: handle appending multiple codepoints to send buffer?
+        if (m_queue_size != 0) {
+            // Can't send - busy sending something else
+            return;
+        }
+
+        char _buf[12];
+        char* str = (char*) &_buf;
+        sprintf(str, "%X", codepoint);
+
+        while (*str != '\0') {
+            uint8_t value;
+
+            switch (*str++)
+            {
+                case '1': value = HID_KEY_1; break;
+                case '2': value = HID_KEY_2; break;
+                case '3': value = HID_KEY_3; break;
+                case '4': value = HID_KEY_4; break;
+                case '5': value = HID_KEY_5; break;
+                case '6': value = HID_KEY_6; break;
+                case '7': value = HID_KEY_7; break;
+                case '8': value = HID_KEY_8; break;
+                case '9': value = HID_KEY_9; break;
+                case '0': value = HID_KEY_0; break;
+                case 'A': value = HID_KEY_A; break;
+                case 'B': value = HID_KEY_B; break;
+                case 'C': value = HID_KEY_C; break;
+                case 'D': value = HID_KEY_D; break;
+                case 'E': value = HID_KEY_E; break;
+                case 'F': value = HID_KEY_F; break;
+            }
+
+            m_key_queue[m_queue_size++] = value;
+        }
+    }
+
+    // Returns true when sending has completed
+    bool update()
+    {
+        if (m_queue_size == 0) {
+            // Nothing to do - not sending
+            return false;
+        }
+
+        if (m_waiting && !usb_last_report_sent()) {
+            // Waiting between reports
+            return false;
+        }
+
+        m_waiting = false;
+
+        if (m_needs_release) {
+            // Send a report with the last keys released
+            m_keymap[0] = 0;
+            usb_set_key_report(m_keymap, 0);
+            m_needs_release = false;
+            m_waiting = true;
+            return false;
+        }
+
+        switch (m_state) {
+            case CodepointSender::kSendLeader: {
+                send_key(HID_KEY_U, KEYBOARD_MODIFIER_LEFTCTRL | KEYBOARD_MODIFIER_LEFTSHIFT);
+                m_state = CodepointSender::kSendKeys;
+                break;
+            }
+
+            case CodepointSender::kSendKeys: {
+                if (m_index < m_queue_size) {
+                    // Send next hex character
+                    send_key(m_key_queue[m_index++]);
+                } else {
+                    // No more hex characters to send: press enter
+                    send_key(HID_KEY_ENTER);
+                    m_state = CodepointSender::kReset;
+                }
+                break;
+            }
+
+            case CodepointSender::kReset: {
+                m_queue_size = 0;
+                m_next_send = 0;
+                m_index = 0;
+                m_state = CodepointSender::kSendLeader;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+private:
+
+    void send_key(uint8_t keycode, uint8_t modifiers = 0)
+    {
+        m_keymap[0] = keycode;
+        usb_set_key_report(m_keymap, modifiers);
+
+        m_needs_release = true;
+        m_waiting = true;
+    }
+
+    enum State {
+        kSendLeader,
+        kSendKeys,
+        kReset
+    };
+
+    absolute_time_t m_next_send = 0;
+
+    uint m_index = 0;
+    uint m_queue_size = 0;
+    uint8_t m_key_queue[16] = {};
+    uint8_t m_keymap[6] = {};
+    State m_state = CodepointSender::kSendLeader;
+    bool m_waiting = false;
+    bool m_needs_release = false;
 };
 
 
@@ -206,7 +333,18 @@ int main()
     UserInput modeclear_switch(PIN_SWITCH_MODECLEAR);
     UserInput send_switch(PIN_SWITCH_SEND);
 
+    CodepointSender sender;
+
+    // Configure USB now the device is ready
+    usb_init();
+
     while (true) {
+        usb_poll();
+
+        if (sender.update()) {
+            app.flush_buffer();
+        }
+
         if (needs_render) {
             needs_render = false;
 
@@ -234,7 +372,7 @@ int main()
             }
 
             if (send_switch.pressed()) {
-                app.flush_buffer();
+                sender.send(app.get_codepoint());
             }
 
             app.render();

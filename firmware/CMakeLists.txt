@@ -8,6 +8,11 @@ pico_sdk_init()
 
 include($ENV{PICO_SDK_PATH}/pico_sdk_init.cmake)
 
+# Enable Tiny USB
+set(FAMILY rp2040)
+set(BOARD pico_sdk)
+set(TINYUSB_FAMILY_PROJECT_NAME_PREFIX "tinyusb_dev_")
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
@@ -166,12 +171,16 @@ set(DEVICE_SOURCES
 	filesystem.cpp
 	hw_config.c
 	st7789.c
+	usb.c
+	usb_descriptors.c
 )
 
 set(FIRMWARE_LIBS
 	freetype
 	pico_stdlib
 	png_static
+	tinyusb_board
+	tinyusb_device
 	zlibstatic
 )
 
