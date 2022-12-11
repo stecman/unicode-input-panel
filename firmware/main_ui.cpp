@@ -27,14 +27,14 @@ static const char* s_missing_glyph = "NO GLYPH";
 static const char* s_invalid_codepoint = "INVALID CODEPOINT";
 static const char* s_control_char = "CTRL CODE";
 
-static void blank_and_invalidate(UIRect &rect)
+static void blank_and_invalidate(UIRect &rect, uint8_t fill = 0x0)
 {
     if (rect.is_valid()) {
         // Limit blanking to actual screen space
         rect.clamp(0, 0, DISPLAY_WIDTH - 1, DISPLAY_HEIGHT - 1);
 
         // Fill area with black pixels
-        st7789_fill_window(0x0, rect.x, rect.y, rect.width, rect.height);
+        st7789_fill_window(fill, rect.x, rect.y, rect.width, rect.height);
 
         // Avoid redundant erasures
         rect.invalidate();
@@ -45,7 +45,7 @@ static void blank_and_invalidate(UIRect &rect)
  * Blank any areas where "next" didn't overlap "last"
  * This currently assumes both rects are the same height as it was written for text labels
  */
-static void diff_blank(UIRect &last, UIRect &next)
+static void diff_blank(UIRect &last, UIRect &next, uint8_t fill = 0x0)
 {
     if (last.is_valid()) {
         last.clamp(0, 0, DISPLAY_WIDTH - 1, DISPLAY_HEIGHT - 1);
@@ -56,7 +56,7 @@ static void diff_blank(UIRect &last, UIRect &next)
             UIRect blanking = last;
             blanking.width = next.x - last.x;
             blanking.draw_outline_debug();
-            blank_and_invalidate(blanking);
+            blank_and_invalidate(blanking, fill);
         }
 
         // Clear right-hand side if the last drawing was larger
@@ -66,7 +66,7 @@ static void diff_blank(UIRect &last, UIRect &next)
             UIRect blanking = last;
             blanking.x = next_end_x;
             blanking.width = last_end_x - next_end_x;
-            blank_and_invalidate(blanking);
+            blank_and_invalidate(blanking, fill);
         }
     }
 }
@@ -157,7 +157,7 @@ bool MainUI::get_shift_lock()
 
 void MainUI::reset()
 {
-    m_shift_lock = false;
+    set_shift_lock(false);
     set_codepoint(m_codepoint & 0xFF);
 }
 
@@ -202,7 +202,7 @@ void MainUI::render_codepoint()
     const char* block_name = uc_get_block_name(m_codepoint);
     const char* codepoint_name = uc_get_codepoint_name(m_codepoint);
 
-    bool should_render_titles = true;
+    bool valid_codepoint = true;
 
     if (block_name == NULL) {
         block_name = s_invalid_block;
@@ -248,10 +248,7 @@ void MainUI::render_codepoint()
 
             if (block_name == s_invalid_block) {
                 // Invalid codepoint as it's outside any block
-
-                const uint y = (DISPLAY_HEIGHT/2) - 20;
-
-                should_render_titles = false;
+                valid_codepoint = false;
 
                 // The bad codepoint in hex
                 {
@@ -259,24 +256,22 @@ void MainUI::render_codepoint()
                     char* hex_string = (char*) &_hex_string;
                     sprintf(hex_string, "0x%X", m_codepoint);
 
-                    pen.set_colour(kColour_White);
-                    pen.set_size(44);
+                    // Adjust font size to fit on screen
+                    int yOffset;
+                    if (0xFF000000 & m_codepoint) {
+                        pen.set_size(32);
+                        yOffset = 22;
+                    } else {
+                        pen.set_size(44);
+                        yOffset = 28;
+                    }
+
+                    pen.set_colour(kColour_Gray);
                     pen.set_embolden(128);
 
                     const uint16_t text_width = pen.compute_px_width(hex_string);
-                    pen.move_to(std::max(0, (DISPLAY_WIDTH - text_width)/2), y);
+                    pen.move_to(std::max(0, (DISPLAY_WIDTH - text_width)/2), (DISPLAY_HEIGHT/2) - yOffset);
                     m_last_draw = pen.draw(hex_string, text_width);
-                }
-
-                // Title
-                {
-                    pen.set_colour(kColour_Error);
-                    pen.set_size(18);
-                    pen.set_embolden(64);
-
-                    const uint16_t text_width = pen.compute_px_width(s_invalid_codepoint);
-                    pen.move_to(std::max(0, (DISPLAY_WIDTH - text_width)/2), y - 22);
-                    m_last_draw += pen.draw(s_invalid_codepoint, text_width);
                 }
 
             } else {
@@ -300,58 +295,87 @@ void MainUI::render_codepoint()
     {
         static UIRect codepoint_area;
         static UIRect decimal_area;
+        static bool needs_refill = true;
 
-        if (should_render_titles) {
-            const int pull_towards_centre = 10;
+        const int pull_towards_centre = 10;
 
-            //UIFontPen pen = m_fontstore.get_monospace_pen();
-            UIFontPen pen = m_fontstore.get_pen();
+        //UIFontPen pen = m_fontstore.get_monospace_pen();
+        UIFontPen pen = m_fontstore.get_pen();
 
-            char _buf[12];
-            char* str = (char*) &_buf;
-            uint16_t text_width;
+        char _buf[12];
+        char* str = (char*) &_buf;
+        uint16_t text_width, active_text_width;
 
-            //pen.set_render_mode(UIFontPen::kMode_DirectToScreen);
-            pen.set_size(16);
-            pen.set_embolden(80);
+        //pen.set_render_mode(UIFontPen::kMode_DirectToScreen);
+        pen.set_size(16);
+        pen.set_embolden(80);
 
-            // Codepoint hex value
-            sprintf(str, "U+%02X", m_codepoint);
-            text_width = pen.compute_px_width(str);
-            pen.move_to(std::max(0, (((DISPLAY_WIDTH/2) - text_width)/2) + pull_towards_centre), DISPLAY_HEIGHT - 22);
-            pen.set_colour(0x70d100);
+        // Codepoint hex value
+        sprintf(str, "U+%02X", m_codepoint);
+        text_width = pen.compute_px_width(str);
+        const uint active_index = strlen(str) - 2;
+        active_text_width = pen.compute_px_width(str + active_index);
+        pen.move_to(std::max(0, (((DISPLAY_WIDTH/2) - text_width)/2) + pull_towards_centre), DISPLAY_HEIGHT - 23);
 
-            {
-                UIRect area(pen.draw(str));
-                diff_blank(codepoint_area, area);
-                codepoint_area = area;
-            }
+        {
+            const char swap = str[active_index];
+            str[active_index] = '\0';
 
-            // Codepoint decimal value
-            sprintf(str, "%d", m_codepoint);
-            text_width = pen.compute_px_width(str);
-            pen.move_to(std::max(0, (DISPLAY_WIDTH/2) - pull_towards_centre + (((DISPLAY_WIDTH/2) - text_width)/2)), DISPLAY_HEIGHT - 22);
-            pen.set_colour(0x8200d1);
+            pen.set_colour(0xEEEEEE);
 
-            {
-                UIRect area(pen.draw(str));
-                diff_blank(decimal_area, area);
-                decimal_area = area;
-            }
-        } else {
-            blank_and_invalidate(codepoint_area);
-            blank_and_invalidate(decimal_area);
+            UIRect area(pen.draw(str));
+
+            pen.set_colour(0xe0ca2c);
+            str[active_index] = swap;
+            area += pen.draw(str + active_index);
+
+            diff_blank(codepoint_area, area);
+            codepoint_area = area;
+
+            st7789_fill_window_colour(0xe0ca2c, pen.x() - active_text_width, DISPLAY_HEIGHT - 3, active_text_width, 2);
+        }
+
+        // Codepoint decimal value
+        sprintf(str, "%u", m_codepoint);
+        text_width = pen.compute_px_width(str);
+        pen.move_to(std::max(0, (DISPLAY_WIDTH/2) - pull_towards_centre + (((DISPLAY_WIDTH/2) - text_width)/2)), DISPLAY_HEIGHT - 23);
+        pen.set_colour(0x999999);
+
+        {
+            UIRect area(pen.draw(str));
+            diff_blank(decimal_area, area);
+            decimal_area = area;
         }
     }
 
     // Render codepoint metadata
-    if (should_render_titles) {
+    if (valid_codepoint) {
+        blank_and_invalidate(m_title_draw);
         m_block_label.replace(block_name);
         m_codepoint_label.replace(codepoint_name);
 
     } else {
-        m_block_label.clear();
-        m_codepoint_label.clear();
+        // "Invalid codepoint" title
+        // This draws over the previous titles
+        if (!m_title_draw.is_valid())
+        {
+            m_block_label.clear();
+            m_codepoint_label.clear();
+
+            st7789_fill_window_colour(kColour_Error, 0, 0, DISPLAY_WIDTH, 30);
+            m_title_draw = UIRect(0, 0, DISPLAY_WIDTH, 30);
+
+            UIFontPen pen = m_fontstore.get_pen();
+            pen.set_render_mode(UIFontPen::kMode_DirectToScreen);
+            pen.set_colour(kColour_White);
+            pen.set_background(kColour_Error);
+            pen.set_size(18);
+            pen.set_embolden(64);
+
+            const uint16_t text_width = pen.compute_px_width(s_invalid_codepoint);
+            pen.move_to(std::max(0, (DISPLAY_WIDTH - text_width)/2), 3);
+            pen.draw(s_invalid_codepoint, text_width);
+        }
     }
 }
 

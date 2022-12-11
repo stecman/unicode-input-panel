@@ -198,7 +198,7 @@ bool FontStore::drawGlyph(uint32_t codepoint, int adjust_y)
         // Load an outline glyph so that it will fit on screen
 
         const uint16_t max_width = DISPLAY_WIDTH - 20;
-        const uint16_t max_height = DISPLAY_HEIGHT - 60;
+        const uint16_t max_height = DISPLAY_HEIGHT - 70;
 
         // Start with a size that will allow 95% of glyphs fit comfortably on screen
         uint point_size = 60;
@@ -461,6 +461,9 @@ struct PenRasterState {
     uint32_t colour;
     int16_t width;
     int16_t height;
+    uint8_t bg_r;
+    uint8_t bg_g;
+    uint8_t bg_b;
     uint8_t* buffer;
 };
 
@@ -483,12 +486,12 @@ static void raster_pen_line(
 
     for (int i = 0; i < count; ++i) {
         const auto &span = spans[i];
+        const auto &coverage = span.coverage;
 
-        // Fade the colour based on coverage
-        // This probably isn't correct, but it's fast
-        const uint8_t r = (pen_r * span.coverage) >> 8;
-        const uint8_t g = (pen_g * span.coverage) >> 8;
-        const uint8_t b = (pen_b * span.coverage) >> 8;
+        // Blend font colour with background
+        const uint8_t r = ((coverage * pen_r) + ((255 - coverage) * state->bg_r)) >> 8;
+        const uint8_t g = ((coverage * pen_g) + ((255 - coverage) * state->bg_g)) >> 8;
+        const uint8_t b = ((coverage * pen_b) + ((255 - coverage) * state->bg_b)) >> 8;
 
         int16_t x = offset_x + state->buf_x + span.x;
         const int16_t end_x = std::min(x + span.len, state->width - 1);
@@ -559,13 +562,13 @@ static void raster_callback_direct(const int y, const int count, const FT_Span* 
 
     for (int i = 0; i < count; ++i) {
         const auto &span = spans[i];
+        const auto &coverage = span.coverage;
 
-        // Fade the colour based on coverage
-        // This probably isn't correct, but it's fast
+        // Blend font colour with background
         const uint8_t channels[3] = {
-            (uint8_t) ((pen_r * span.coverage) >> 8),
-            (uint8_t) ((pen_g * span.coverage) >> 8),
-            (uint8_t) ((pen_b * span.coverage) >> 8),
+            (uint8_t) (((coverage * pen_r) + ((255 - coverage) * state->bg_r)) >> 8),
+            (uint8_t) (((coverage * pen_g) + ((255 - coverage) * state->bg_g)) >> 8),
+            (uint8_t) (((coverage * pen_b) + ((255 - coverage) * state->bg_b)) >> 8),
         };
 
         st7789_set_cursor(state->screen_x + state->buf_x + span.x, state->screen_y + canvas_y);
@@ -583,6 +586,7 @@ UIFontPen::UIFontPen(const uint8_t* fontdata, size_t length, FT_Library library)
       m_x(0),
       m_y(0),
       m_colour(0xFFFFFF),
+      m_background(0),
       m_size_px(16),
       m_embolden(0),
       m_mode(UIFontPen::kMode_CanvasBuffer)
@@ -665,6 +669,10 @@ UIRect UIFontPen::draw(const char* str, const uint16_t canvas_width_px)
     state.colour = m_colour;
     state.width = px_width;
     state.height = px_height;
+    state.bg_r = m_background >> 16;
+    state.bg_g = m_background >> 8;
+    state.bg_b = m_background;
+
 
     FT_Raster_Params params;
     memset(&params, 0, sizeof(params));
@@ -672,11 +680,14 @@ UIRect UIFontPen::draw(const char* str, const uint16_t canvas_width_px)
     params.user = &state;
 
     if (m_mode == UIFontPen::kMode_CanvasBuffer) {
-        state.buffer = (uint8_t*) calloc(1, canvas_bytes);
+        state.buffer = (uint8_t*) malloc(canvas_bytes);
         if (state.buffer == NULL) {
             printf("Failed to allocate render buffer of %d x %d\n", px_width, px_height);
             return UIRect();
         }
+
+        // Cheat setting background colour, as we only use greyscale backgrounds
+        memset(state.buffer, state.bg_r, canvas_bytes);
 
         params.gray_spans = raster_callback_canvas;
 

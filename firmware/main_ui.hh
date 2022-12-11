@@ -53,7 +53,6 @@ private:
     uint m_next_tick;
     AnimationState m_state;
 
-
     UIRect m_last_draw;
 };
 
@@ -137,4 +136,5 @@ private: // Rendering state
     ScrollingLabel m_codepoint_label;
 
     UIRect m_last_draw;
+    UIRect m_title_draw;
 };

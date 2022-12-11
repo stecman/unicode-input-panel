@@ -103,6 +103,14 @@ public:
     }
 
     /**
+     * Set the fill/background colour as an RGB triplet (0xAABBCC)
+     * The upper byte of the 32-bit value is ignored
+     */
+    inline void set_background(uint32_t rgb) {
+        m_background = rgb;
+    }
+
+    /**
      * Set how much to thicken glyphs when rendering
      * Font units are 1/64th of a pixel, so a value of 64 = 1px
      */
@@ -118,6 +126,14 @@ public:
         m_mode = mode;
     }
 
+    inline int16_t x() {
+        return m_x;
+    }
+
+    inline int16_t y() {
+        return m_y;
+    }
+
 private:
 
     FT_Library m_ft_library;
@@ -128,6 +144,7 @@ private:
     int16_t m_y;
 
     uint32_t m_colour;
+    uint32_t m_background;
     uint16_t m_size_px;
     uint16_t m_embolden;
 

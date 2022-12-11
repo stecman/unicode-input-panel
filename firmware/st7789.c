@@ -323,6 +323,17 @@ void st7789_fill_window(uint8_t pixel, uint16_t x, uint16_t y, uint16_t width, u
     st7789_write_dma(&g_fill_value, width * height * 3, false);
 }
 
+void st7789_fill_window_colour(uint32_t pixel, uint16_t x, uint16_t y, uint16_t width, uint16_t height)
+{
+    st7789_set_window(x, y, x + width, y + height);
+
+    for (uint i = 0; i < width * height; i++) {
+        st7789_put(pixel);
+    }
+
+    gpio_put(st7789_cfg.gpio_cs, 1);
+}
+
 void st7789_fill_colour(uint32_t pixel)
 {
     uint num_pixels = st7789_width * st7789_height;

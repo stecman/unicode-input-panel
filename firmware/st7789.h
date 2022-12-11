@@ -48,6 +48,7 @@ void st7789_put(uint32_t pixel);
 void st7789_put_mono(uint8_t pixel);
 void st7789_fill(uint8_t pixel);
 void st7789_fill_window(uint8_t pixel, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
+void st7789_fill_window_colour(uint32_t pixel, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
 void st7789_fill_colour(uint32_t pixel);
 void st7789_set_cursor(uint16_t x, uint16_t y);
 void st7789_set_window(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
