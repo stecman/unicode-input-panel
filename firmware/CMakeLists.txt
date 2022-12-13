@@ -179,8 +179,6 @@ set(FIRMWARE_LIBS
 	freetype
 	pico_stdlib
 	png_static
-	tinyusb_board
-	tinyusb_device
 	zlibstatic
 )
 
@@ -206,6 +204,8 @@ else()
 		hardware_spi
 		hardware_uart
 		FatFs_SPI
+		tinyusb_board
+		tinyusb_device
 	)
 
 	add_definitions(-DPICO_MALLOC_PANIC=0)
