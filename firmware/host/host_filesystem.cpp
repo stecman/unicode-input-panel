@@ -14,12 +14,16 @@ static unsigned long _read_stream(FT_Stream stream,
     FILE* fp = (FILE*) stream->descriptor.pointer;
 
     // FreeType can call this function with a count of zero to seek only
-    if (count == 0) {
+    if (ftell(fp) != offset) {
         fseek(fp, offset, SEEK_SET);
-        return 0;
-    } else {
-        return fread(buffer, 1, count, fp);
     }
+
+    if (count == 0) {
+        // Seek only
+        return 0;
+    }
+        
+    return fread(buffer, 1, count, fp);
 }
 
 static void _close_stream(FT_Stream stream)

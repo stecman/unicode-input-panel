@@ -18,29 +18,31 @@ static unsigned long _read_stream(FT_Stream stream,
     FRESULT fr;
     FIL* fp = (FIL*) stream->descriptor.pointer;
 
-    // When count is zero, FreeType is requesting to do a seek operation
-    if (count == 0) {
+    // FreeType normally does a seek (count=0) followed by a separate read at the same
+    // offset, however a few functions use FT_STREAM_READ_AT which expects a combined seek
+    // and read, so we need to handle seek in both cases.
+    if (f_tell(fp) != offset) {
         fr = f_lseek(fp, offset);
         if (fr != FR_OK) {
             printf("f_lseek to %lu failed on slot %d: %s (%d)\n",
                 offset, stream->descriptor.value, FRESULT_str(fr), fr);
         }
-
-        // FreeType treats the return value for seeks as an error code (non-zero is failure)
-        return fr;
-
-    } else {
-
-        uint bytes_read = 0;
-
-        fr = f_read(fp, buffer, count, &bytes_read);
-        if (fr != FR_OK) {
-            printf("f_read of %lu bytes at %lu failed on slot %d: %s (%d)\n",
-                count, offset, stream->descriptor.value, FRESULT_str(fr), fr);
-        }
-
-        return bytes_read;
     }
+
+    if (count == 0) {
+        // Seek only. Return value is treated as an error code (non-zero is failure)
+        return fr;
+    }
+
+    uint bytes_read = 0;
+
+    fr = f_read(fp, buffer, count, &bytes_read);
+    if (fr != FR_OK) {
+        printf("f_read of %lu bytes at %lu failed on slot %d: %s (%d)\n",
+            count, offset, stream->descriptor.value, FRESULT_str(fr), fr);
+    }
+
+    return bytes_read;
 }
 
 static void _close_stream(FT_Stream stream)
