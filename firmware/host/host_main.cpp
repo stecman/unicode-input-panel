@@ -1,4 +1,4 @@
-#include "main_ui.hh"
+#include "ui/main_ui.hh"
 #include "st7789.h"
 
 #include "SDL.h"

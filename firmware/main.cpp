@@ -1,5 +1,5 @@
 #include "st7789.h"
-#include "main_ui.hh"
+#include "ui/main_ui.hh"
 #include "usb.h"
 
 // Pico SDK

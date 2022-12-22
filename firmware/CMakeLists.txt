@@ -152,10 +152,10 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(fatfs_spi)
 
 set(BASE_SOURCES
-	font.cpp
 	font_indexer.cpp
-	icons.cpp
-	main_ui.cpp
+	ui/font.cpp
+	ui/icons.cpp
+	ui/main_ui.cpp
 	unicode_db.cpp
 	${CMAKE_CURRENT_BINARY_DIR}/unicode_data_generated.c
 )
