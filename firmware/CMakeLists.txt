@@ -153,6 +153,7 @@ add_subdirectory(fatfs_spi)
 
 set(BASE_SOURCES
 	font_indexer.cpp
+	ui/common.cpp
 	ui/font.cpp
 	ui/icons.cpp
 	ui/main_ui.cpp

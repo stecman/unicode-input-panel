@@ -1,6 +1,7 @@
 #pragma once
 
 #include "font_indexer.hh"
+#include "ui/common.hh"
 #include "util.hh"
 
 // FreeType
@@ -11,44 +12,6 @@
 // C++
 #include <string>
 #include <vector>
-
-#include <stdint.h>
-
-/**
- * Screen region for passing around blanking/erase information
- */
-struct UIRect {
-    UIRect()
-        : x(0), y(0),
-          width(0), height(0) {}
-
-    UIRect(int16_t x, int16_t y, int16_t w, int16_t h)
-        : x(x), y(y),
-          width(w), height(h) {}
-
-    inline bool is_valid() const
-    {
-        return width != 0 && height != 0;
-    }
-
-    inline void invalidate()
-    {
-        width = 0;
-        height = 0;
-    }
-
-    void clamp(int16_t min_x, int16_t min_y, int16_t max_x, int16_t max_y);
-
-    void merge(const UIRect &other);
-    UIRect& operator+=(const UIRect& other);
-
-    void draw_outline_debug(uint32_t colour = 0xFF0000) const;
-
-    int16_t x;
-    int16_t y;
-    int16_t width;
-    int16_t height;
-};
 
 /**
  * Rendering state for drawing text in the UI

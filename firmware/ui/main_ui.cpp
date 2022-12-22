@@ -29,49 +29,6 @@ static const char* s_missing_glyph = "NO GLYPH";
 static const char* s_invalid_codepoint = "INVALID CODEPOINT";
 static const char* s_control_char = "CTRL CODE";
 
-static void blank_and_invalidate(UIRect &rect, uint8_t fill = 0x0)
-{
-    if (rect.is_valid()) {
-        // Limit blanking to actual screen space
-        rect.clamp(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
-
-        // Fill area with black pixels
-        st7789_fill_window(fill, rect.x, rect.y, rect.width, rect.height);
-
-        // Avoid redundant erasures
-        rect.invalidate();
-    }
-}
-
-/**
- * Blank any areas where "next" didn't overlap "last"
- * This currently assumes both rects are the same height as it was written for text labels
- */
-static void diff_blank(UIRect &last, UIRect &next, uint8_t fill = 0x0)
-{
-    if (last.is_valid()) {
-        last.clamp(0, 0, DISPLAY_WIDTH - 1, DISPLAY_HEIGHT - 1);
-        next.clamp(0, 0, DISPLAY_WIDTH - 1, DISPLAY_HEIGHT - 1);
-
-        // Clear left-hand side if the last drawing was larger
-        if (next.x > last.x) {
-            UIRect blanking = last;
-            blanking.width = next.x - last.x;
-            blanking.draw_outline_debug();
-            blank_and_invalidate(blanking, fill);
-        }
-
-        // Clear right-hand side if the last drawing was larger
-        const int next_end_x = next.x + next.width;
-        const int last_end_x = last.x + last.width;
-        if (next_end_x  < last_end_x) {
-            UIRect blanking = last;
-            blanking.x = next_end_x;
-            blanking.width = last_end_x - next_end_x;
-            blank_and_invalidate(blanking, fill);
-        }
-    }
-}
 
 MainUI::MainUI()
     : m_codepoint(0),
@@ -233,7 +190,7 @@ void MainUI::render_codepoint()
 
     // Selectively clear anything we last drew last call
     // (except glyphs as those are automatically cleared by FontStore::drawGlyph)
-    blank_and_invalidate(m_last_draw);
+    m_last_draw.blank_and_invalidate();
 
     if (is_control_char(m_codepoint)) {
         // Technically valid codepoint, but has no visual representation
@@ -336,7 +293,7 @@ void MainUI::render_codepoint()
             
             pen.move_to(DISPLAY_WIDTH/2 - text_width/2, DISPLAY_HEIGHT - 24);
 
-            blank_and_invalidate(value_area);
+            value_area.blank_and_invalidate();
             value_area = pen.draw(str, text_width);
         }
 
@@ -382,7 +339,7 @@ void MainUI::render_codepoint()
 
     // Render codepoint metadata
     if (valid_codepoint) {
-        blank_and_invalidate(m_title_draw);
+        m_title_draw.blank_and_invalidate();
         m_block_label.replace(block_name);
         m_codepoint_label.replace(codepoint_name);
 
@@ -438,128 +395,5 @@ void MainUI::render_scrolling_labels()
         }
 
         m_block_label.render(pen);
-    }
-}
-
-
-ScrollingLabel::ScrollingLabel()
-    : m_str(nullptr) {}
-
-ScrollingLabel::ScrollingLabel(const char* text, int y, int padding)
-    : m_str(text),
-      m_y(y),
-      m_padding(padding),
-      m_tick(0),
-      m_next_tick(0),
-      m_state(ScrollingLabel::kState_New) {}
-
-void ScrollingLabel::replace(const char* text)
-{
-    m_str = text;
-    m_tick = 0;
-    m_next_tick = 0;
-    m_state = ScrollingLabel::kState_New;
-}
-
-void ScrollingLabel::clear()
-{
-    blank_and_invalidate(m_last_draw);
-    m_str = nullptr;
-}
-
-void ScrollingLabel::render(UIFontPen &pen)
-{
-    if (m_str == nullptr) {
-        // Nothing to do
-        return;
-    }
-
-    bool needs_render = false;
-
-    switch (m_state) {
-        case ScrollingLabel::kState_New: {
-            m_width = pen.compute_px_width(m_str);
-            m_start_x = std::max(m_padding, (DISPLAY_WIDTH - m_width)/2);
-            m_x = m_start_x;
-
-            if (m_width > (DISPLAY_WIDTH - m_padding*2)) {
-                m_end_x = (DISPLAY_WIDTH) - m_width - m_padding;
-                m_state = ScrollingLabel::kState_WaitingLeft;
-                m_next_tick = 30;
-            } else {
-                // No movement necessary
-                m_state = ScrollingLabel::kState_Fixed;
-            }
-
-            needs_render = true;
-
-            break;
-        }
-
-        case ScrollingLabel::kState_Fixed:
-            // Nothing to do
-            return;
-
-        case ScrollingLabel::kState_WaitingLeft: {
-            if (m_tick < m_next_tick) {
-                m_tick++;
-            } else {
-                m_state = ScrollingLabel::kState_Animating;
-            }
-
-            break;
-        }
-
-        case ScrollingLabel::kState_Animating: {
-            // Animate scroll
-            m_x -= 2;
-            needs_render = true;
-
-            if (m_x <= m_end_x) {
-                m_state = ScrollingLabel::kState_WaitingRight;
-                m_x = m_end_x;
-                m_next_tick += 60;
-            }
-
-            break;
-        }
-
-        case ScrollingLabel::kState_WaitingRight: {
-            if (m_tick < m_next_tick) {
-                m_tick++;
-            } else {
-                m_state = ScrollingLabel::kState_AnimatingReset;
-            }
-
-            break;
-        }
-
-        case ScrollingLabel::kState_AnimatingReset: {
-            // Animate quickly back to start position
-            int16_t delta = abs(m_x - m_start_x) / 8;
-            if (delta < 4) {
-                delta = 4;
-            }
-
-            m_x += delta;
-            needs_render = true;
-
-            if (m_x >= m_start_x) {
-                m_state = ScrollingLabel::kState_WaitingLeft;
-                m_x = m_start_x;
-                m_next_tick += 60;
-            }
-
-            break;
-        }
-    }
-
-    if (needs_render) {
-        pen.move_to(m_x, m_y);
-        UIRect rect(pen.draw(m_str, m_width));
-
-        diff_blank(m_last_draw, rect);
-
-        m_last_draw = rect;
     }
 }
