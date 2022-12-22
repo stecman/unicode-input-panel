@@ -177,9 +177,6 @@ private:
     // FreeType state
     FT_Library m_ft_library;
 
-    /// Permanently loaded in-memory face for UI
-    FT_Face m_ui_face;
-
     // Currently loaded font face
     FT_Face m_face;
     uint m_active_id;
