@@ -5,6 +5,15 @@
 // Forward declarations
 class UIFontPen;
 
+enum UIColour : uint32_t {
+    kColour_White = 0xffffff,
+    kColour_Gray = 0xa8a8a8,
+    kColour_Orange = 0xff8c00,
+    kColour_Disabled = 0x1b202d,
+    kColour_Error = 0xf02708,
+    kColour_BlockName = 0x00bcff,
+};
+
 /**
  * Screen region for passing around blanking/erase information
  */

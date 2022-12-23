@@ -124,11 +124,7 @@ class CodepointSender
 public:
     void send(uint32_t codepoint)
     {
-        // TODO: handle appending multiple codepoints to send buffer?
-        if (m_queue_size != 0) {
-            // Can't send - busy sending something else
-            return;
-        }
+        // TODO: handle send send buffer full
 
         char _buf[12];
         char* str = (char*) &_buf;
@@ -237,7 +233,7 @@ private:
 
     uint m_index = 0;
     uint m_queue_size = 0;
-    uint8_t m_key_queue[16] = {};
+    uint8_t m_key_queue[32] = {};
     uint8_t m_keymap[6] = {};
     State m_state = CodepointSender::kSendLeader;
     bool m_waiting = false;
@@ -325,7 +321,7 @@ int main()
     }
 
     uint8_t last_input = get_input_byte();
-    app.set_codepoint(last_input);
+    app.set_low_byte(last_input);
 
     add_repeating_timer_ms(30, render_timer_callback, NULL, &render_timer);
 
@@ -360,7 +356,7 @@ int main()
             send_switch.update();
 
             if (shift_switch.was_long_pressed()) {
-                app.set_shift_lock(!app.get_shift_lock());
+                app.toggle_shift_lock();
             } else if (shift_switch.was_short_pressed()) {
                 app.shift();
             }
@@ -372,10 +368,12 @@ int main()
             }
 
             if (send_switch.pressed()) {
-                sender.send(app.get_codepoint());
+                for (uint32_t codepoint : app.get_codepoints()) {
+                    sender.send(codepoint);
+                }
             }
 
-            app.render();
+            app.tick();
         }
     }
 }

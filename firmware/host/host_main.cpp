@@ -139,14 +139,7 @@ void handle_keydown(const SDL_KeyboardEvent &key)
             // Shift-lock when held
             shift_pending = SDL_AddTimer(500 /* milliseconds */, [](Uint32 interval, void *param) -> Uint32 {
                 shift_pending = 0;
-
-                if (app->get_shift_lock()) {
-                    app->set_shift_lock(false);
-                    printf("Cleared shift-lock\n");
-                } else {
-                    app->set_shift_lock(true);
-                    printf("Enabled shift-lock\n");
-                }
+                app->toggle_shift_lock();
                 return 0;
             }, nullptr);
 
@@ -156,7 +149,12 @@ void handle_keydown(const SDL_KeyboardEvent &key)
         case SDL_SCANCODE_KP_ENTER:
         case SDL_SCANCODE_RETURN:
         case SDL_SCANCODE_END:
-            printf("Sent: %s\n", codepoint_to_utf8(app->get_codepoint()).c_str());
+            std::string output;
+            for (uint32_t codepoint : app->get_codepoints()) {
+                output += codepoint_to_utf8(codepoint).c_str();
+            }
+            
+            printf("Sent: %s\n", output.c_str());
             app->flush_buffer();
             break;
     }
@@ -189,7 +187,7 @@ void handle_keyup(const SDL_KeyboardEvent &key)
 
 int main()
 {
-    const uint kDisplayScaling = 2;
+    const uint kDisplayScaling = 4;
     const uint kDisplayPadding = 50;
 
     if(SDL_Init(SDL_INIT_VIDEO) != 0) {

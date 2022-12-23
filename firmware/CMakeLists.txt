@@ -157,6 +157,7 @@ set(BASE_SOURCES
 	ui/font.cpp
 	ui/icons.cpp
 	ui/main_ui.cpp
+	ui/codepoint_view.cpp
 	unicode_db.cpp
 	${CMAKE_CURRENT_BINARY_DIR}/unicode_data_generated.c
 )

@@ -3,14 +3,32 @@
 #include "common.hh"
 #include "font.hh"
 
+class UIDelegate {
+public:
+    // Forwarded methods from MainUI
+    // See MainUI for doc comments
+    virtual void tick() { render(); }
+    virtual void render() = 0;
+    virtual void set_low_byte(uint8_t value) = 0;
+    virtual void shift() = 0;
+    virtual void toggle_shift_lock() = 0;
+    virtual void reset() = 0;
+    virtual void flush_buffer() = 0;
+    virtual const std::vector<uint32_t> get_codepoints() = 0;
+
+    /**
+     * Go to the next available display mode in this view
+     * Returns false if all available display modes have been exhausted.
+     */
+    virtual bool goto_next_mode()
+    {
+        // No modes by default
+        return false;
+    }
+};
+
 class MainUI {
 public:
-
-    enum DisplayMode {
-        kMode_Hex = 0,
-        kMode_Decimal,
-        kMode_END,
-    };
 
     MainUI();
 
@@ -27,10 +45,10 @@ public:
     void render();
 
     /**
-     * Update the low byte of the current buffer
+     * Update the least significant byte of the current buffer
      * This is for passing the state of input switches through to the application
      */
-    void set_low_byte(uint8_t mask);
+    void set_low_byte(uint8_t value);
 
     /**
      * Shift the current buffer one byte to the left to begin input on the next byte
@@ -38,10 +56,11 @@ public:
     void shift();
 
     /**
-     * Enable shift-lock
-     * This holds all high bytes of the buffer across send operations
+     * Toggle shift-lock
+     * The exact effect differs between views, but this generally holds the high bytes
+     * of the buffer across send operations instead of clearing them.
      */
-    void set_shift_lock(bool enable);
+    void toggle_shift_lock();
 
     /**
      * Change to the next available display mode
@@ -49,13 +68,8 @@ public:
     void goto_next_mode();
 
     /**
-     * Check if shift-lock is currently enabled
-     */
-    bool get_shift_lock();
-
-    /**
      * Perform a manual reset/clear
-     * This clears shift-lock and resets the buffer to be one input byte
+     * This clears shift-lock and resets the buffer to the current low byte
      */
     void reset();
 
@@ -65,34 +79,12 @@ public:
     void flush_buffer();
 
     /**
-     * Manually set the codepoint in the buffer
+     * Read the current buffer as codepoints to output
+     * This may be empty if the current view doesn't have any valid codepoint available
      */
-    void set_codepoint(uint32_t codepoint);
-
-    /**
-     * Read the codepoint currently in the buffer
-     */
-    uint32_t get_codepoint();
+    const std::vector<uint32_t> get_codepoints();
 
 private:
-
-    void render_codepoint();
-    void render_scrolling_labels();
-
-private: // App state
-
-    uint32_t m_codepoint;
-    DisplayMode m_mode;
-    bool m_shift_lock;
-
-    bool m_codepoint_dirty;
-
-private: // Rendering state
-    FontStore m_fontstore;
-
-    ScrollingLabel m_block_label;
-    ScrollingLabel m_codepoint_label;
-
-    UIRect m_last_draw;
-    UIRect m_title_draw;
+    UIDelegate* m_view;
+    size_t m_view_index;
 };
