@@ -8,17 +8,26 @@ from namedb import UnicodeNameDb
 
 def build_name_tables(codepoint_name_map):
     """
-    Build a tables to find and construct codepoint names
+    Build table to find and construct codepoint names
 
     This is lightly compressed by storing common prefixes in a second table.
-    Since codepoint names are almost entirely consecutive, it's also cheaper
-    to store discontinuities in third table instead of associating each name
-    with its 32-bit codepoint.
+    The codepoint for each string is inferred by index rather than storing
+    each 32-bit codepoint in each name in the table. Gaps in the sequence
+    of codepoints are stored in a third table.
 
     Returns several tables:
-        name_table: dicts of {"prefix_index": , "name": }
-        prefix_table: list of common prefix strings
-        sequence_table: dicts of {"codepoint" , "name_index": }
+
+        name_table: A list of dicts of {
+            "prefix_index": <index-into-prefix-table>,
+            "name": <string>
+        }
+
+        prefix_table: A list of common prefix strings
+
+        sequence_table: A list of dicts of {
+            "codepoint": <uint32>,
+            "name_index": <index-into-name-table>
+        }
     """
     LOOK_BACK_COUNT = 32
 

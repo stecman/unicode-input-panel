@@ -4,8 +4,8 @@ Classic binary data entry meets modern Unicode: 144K characters at your
 fingertips. A physical user interface to enter any UTF-8 sequence over USB.
 
 A display shows a preview of the selected glyph(s), along with metadata about
-the codepoint - all rendered entirely on-device. As 30MB+ of font files are
-required to render all of Unicode, these are read from an SD card.
+the codepoint - all rendered entirely on-device. About 30MB of font files are
+required to render glyphs, which are read from an SD card.
 
 See the [Hackaday project page]() for more detail about the build.
 
@@ -89,10 +89,10 @@ into memory during initial load/open (`FT_Open_Face`).
   The fonts in the prepared bundle were all converted to TTF using [otf2ttf](https://github.com/awesometoolbox/otf2ttf).
 
 - Fonts with many thousands of glyphs like NotoSansJP can be too large to open
-  on the Pico. A couple of these large fonts were split into smaller fonts with
-  around 500 glyphs each, using the `pyftsubset` tool mentioned below.
-
-  TODO: Note this probably discards information from the GSUB table
+  on the Pico, even in TTF format. A couple of these large fonts were split
+  into smaller font files with around 500 glyphs each using `pyftsubset`, with
+  some logic in `scripts/split-font.py` to keep codepoints used in ligatures
+  together to preserve that GSUB table data.
 
 ### Changing the embedded UI font
 
