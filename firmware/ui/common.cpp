@@ -1,6 +1,8 @@
 #include "common.hh"
+
 #include "st7789.h"
 #include "ui/font.hh"
+#include "unicode_db.hh"
 
 #include <algorithm>
 
@@ -224,5 +226,105 @@ void ScrollingLabel::render(UIFontPen &pen)
         m_last_draw.diff_blank(rect);
 
         m_last_draw = rect;
+    }
+}
+
+//
+// CodepointTitle
+//
+
+static const char* s_invalid_block = "INVALID BLOCK";
+static const char* s_unnamed_codepoint = "UNAMED CODEPOINT";
+static const char* s_invalid_codepoint = "INVALID CODEPOINT";
+
+CodepointTitle::CodepointTitle(FontStore& fontstore)
+    : m_fontstore(fontstore),
+      m_block_label(nullptr, 0, 25),
+      m_codepoint_label(nullptr, 23, 10){}
+
+void CodepointTitle::update_labels(const char* block_name, const char* codepoint_name)
+{    
+    if (block_name == NULL && codepoint_name == NULL) {
+        // Invalid codepoint: a banner will be drawn indicating this next render
+        m_block_label.clear();
+        m_codepoint_label.clear();
+        return;
+    }
+
+    if (block_name == NULL) {
+        block_name = s_invalid_block;
+    }
+
+    if (codepoint_name == NULL) {
+        codepoint_name = s_unnamed_codepoint;
+    }
+    
+    m_block_label.replace(block_name);
+    m_codepoint_label.replace(codepoint_name);
+}
+
+void CodepointTitle::clear()
+{
+    m_title_draw.blank_and_invalidate();
+    m_block_label.clear();
+    m_codepoint_label.clear();
+}
+
+void CodepointTitle::render()
+{
+    if (m_block_label.value() == NULL) {
+
+        // Draw the "invalid codepoint" banner if it hasn't been drawn yet
+        // This completely covers the labels, so they don't need to be cleared first
+        if (!m_title_draw.is_valid())
+        {
+            st7789_fill_window_colour(kColour_Error, 0, 0, DISPLAY_WIDTH, 30);
+            m_title_draw = UIRect(0, 0, DISPLAY_WIDTH, 30);
+
+            UIFontPen pen = m_fontstore.get_pen();
+            pen.set_render_mode(UIFontPen::kMode_DirectToScreen);
+            pen.set_colour(kColour_White);
+            pen.set_background(kColour_Error);
+            pen.set_size(18);
+            pen.set_embolden(64);
+
+            const uint16_t text_width = pen.compute_px_width(s_invalid_codepoint);
+            pen.move_to(std::max(0, (DISPLAY_WIDTH - text_width)/2), 3);
+            pen.draw(s_invalid_codepoint, text_width);
+        }
+
+    } else {
+
+        // Draw the scrolling labels
+        UIFontPen pen = m_fontstore.get_pen();
+        pen.set_size(16);
+
+        // Clear any previous banner that was shown
+        // (Done after font loading to minimise flicker)
+        m_title_draw.blank_and_invalidate();
+
+        {
+            pen.set_embolden(24); // Thicken the small text a little as it renders grey otherwise
+
+            if (m_codepoint_label.value() == s_unnamed_codepoint) {
+                pen.set_colour(kColour_Error);
+            } else {
+                pen.set_colour(kColour_White);
+            }
+
+            m_codepoint_label.render(pen);
+        }
+
+        {
+            pen.set_embolden(80);
+
+            if (m_block_label.value() == s_invalid_block) {
+                pen.set_colour(kColour_Error);
+            } else {
+                pen.set_colour(kColour_BlockName);
+            }
+
+            m_block_label.render(pen);
+        }
     }
 }

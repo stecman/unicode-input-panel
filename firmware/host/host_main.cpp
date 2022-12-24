@@ -1,5 +1,6 @@
-#include "ui/main_ui.hh"
 #include "st7789.h"
+#include "ui/main_ui.hh"
+#include "util.hh"
 
 #include "SDL.h"
 
@@ -23,42 +24,6 @@ void init_app()
 {
     printf("Starting MainUI...\n");
     app = new MainUI();
-}
-
-std::string codepoint_to_utf8(uint32_t codepoint)
-{
-    uint8_t stack[4];
-    uint index = 0;
-
-    if (codepoint <= 0x7F) {
-        stack[index++] = codepoint;
-    } else if (codepoint <= 0x7FF) {
-        stack[index++] = 0x80 | (codepoint & 0x3F); codepoint >>= 6;
-        stack[index++] = 0xC0 | (codepoint & 0x1F);
-    } else if (codepoint <= 0xFFFF) {
-        stack[index++] = 0x80 | (codepoint & 0x3F); codepoint >>= 6;
-        stack[index++] = 0x80 | (codepoint & 0x3F); codepoint >>= 6;
-        stack[index++] = 0xE0 | (codepoint & 0x0F);
-    } else if (codepoint <= 0x1FFFFF) {
-        stack[index++] = 0x80 | (codepoint & 0x3F); codepoint >>= 6;
-        stack[index++] = 0x80 | (codepoint & 0x3F); codepoint >>= 6;
-        stack[index++] = 0x80 | (codepoint & 0x3F); codepoint >>= 6;
-        stack[index++] = 0xF0 | (codepoint & 0x07);
-    } else {
-        return std::string("Failed to encode as utf-8: ") + std::to_string(codepoint);
-    }
-
-    std::string buf;
-    buf.reserve(index + 1);
-
-    const uint numbytes = index;
-    for (uint i = 0; i < numbytes; i++) {
-        buf[i] = stack[--index];
-    }
-
-    buf[numbytes] = '\0';
-
-    return buf;
 }
 
 void handle_keydown(const SDL_KeyboardEvent &key)
@@ -151,7 +116,13 @@ void handle_keydown(const SDL_KeyboardEvent &key)
         case SDL_SCANCODE_END:
             std::string output;
             for (uint32_t codepoint : app->get_codepoints()) {
-                output += codepoint_to_utf8(codepoint).c_str();
+                const char* encoding = codepoint_to_utf8(codepoint);
+                if (encoding == nullptr) {
+                    printf("Could not encode codepoint %u as UTF-8\n", codepoint);
+                    continue;
+                }
+
+                output += encoding;
             }
             
             printf("Sent: %s\n", output.c_str());

@@ -136,7 +136,10 @@ public:
     UIFontPen get_pen();
     UIFontPen get_monospace_pen();
 
-    bool drawGlyph(uint32_t codepoint, int adjust_y = 0);
+    inline FT_Library get_library()
+    {
+        return m_ft_library;
+    }
 
     inline const std::vector<CodepointRange>& codepoint_ranges()
     {
@@ -150,9 +153,10 @@ public:
     }
 
     /**
-     * Erase the screen region from the most recent call to drawGlyph
+     * Load a registered font with a glyph for the given codepoint
+     * Returns nullptr if no font matched the codepoint
      */
-    void clearLastGlyph();
+    FT_Face loadFaceByCodepoint(uint32_t codepoint);
 
     /**
      * Unload any loaded FreeType face to free up heap memory
@@ -163,16 +167,12 @@ private:
 
     /**
      * Load an indexed font by its registered id
+     * Returns nullptr if no font is valid for the given index
      */
-    bool loadFace(uint id);
-
-private:
+    FT_Face loadFace(uint id);
 
     // Codepoint lookup
     FontIndexer m_indexer;
-
-    // Last drawn region for quick blanking
-    UIRect m_last_draw;
 
     // FreeType state
     FT_Library m_ft_library;

@@ -4,6 +4,7 @@
 
 // Forward declarations
 class UIFontPen;
+class FontStore;
 
 enum UIColour : uint32_t {
     kColour_White = 0xffffff,
@@ -118,3 +119,38 @@ private:
 
     UIRect m_last_draw;
 };
+
+/**
+ *Screen-wide header displaying codepoint and block name
+ */
+class CodepointTitle
+{
+public:
+    CodepointTitle(FontStore& fontstore);
+
+    void update_labels(const char* block_name, const char* codepoint_name);
+
+    /**
+     * Render any changes, and move scrolling labels
+     * This should be called once per frame
+     */
+    void render();
+
+    // Blank previously rendered
+    void clear();
+
+private:
+    FontStore& m_fontstore;
+
+    UIRect m_title_draw;
+    ScrollingLabel m_block_label;
+    ScrollingLabel m_codepoint_label;
+};
+
+/**
+ * Draw big a glyph or feedback for non-representable codepoints
+ *
+ * This is expensive, so should be managed by the caller to only
+ * be called when the codepoint needs re-drawing
+ */
+void draw_codepoint(uint32_t codepoint);

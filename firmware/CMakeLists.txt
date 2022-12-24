@@ -153,12 +153,15 @@ add_subdirectory(fatfs_spi)
 
 set(BASE_SOURCES
 	font_indexer.cpp
+	ui/codepoint_view.cpp
 	ui/common.cpp
 	ui/font.cpp
+	ui/glyph_display.cpp
 	ui/icons.cpp
 	ui/main_ui.cpp
-	ui/codepoint_view.cpp
 	unicode_db.cpp
+	util.cpp
+
 	${CMAKE_CURRENT_BINARY_DIR}/unicode_data_generated.c
 )
 

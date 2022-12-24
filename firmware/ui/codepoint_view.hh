@@ -2,6 +2,7 @@
 
 #include "ui/common.hh"
 #include "ui/font.hh"
+#include "ui/glyph_display.hh"
 #include "ui/main_ui.hh"
 
 class CodepointView : public UIDelegate
@@ -21,9 +22,6 @@ public:
     const std::vector<uint32_t> get_codepoints() override;
 
 private:
-
-    void render_glyph();
-    void render_scrolling_labels();
     void render_input_feedback();
 
 private: // View state
@@ -44,11 +42,10 @@ private: // View state
 
 private: // Drawing state
 
-    ScrollingLabel m_block_label;
-    ScrollingLabel m_codepoint_label;
+    CodepointTitle m_title_display;
+    GlyphDisplay m_glyph_display;
 
-    UIRect m_last_draw;
-    UIRect m_title_draw;
+    UIRect m_last_draw; 
 
     FontStore& m_fontstore;
 };
