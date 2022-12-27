@@ -2,18 +2,20 @@
 
 #include "ui/common.hh"
 #include "ui/font.hh"
-#include "ui/glyph_display.hh"
 #include "ui/main_ui.hh"
 
-class CodepointView : public UIDelegate
+/**
+ * Large hex value display / programmer's hex value helper
+ * Sends the displayed hex string rather than the codepoint for that value
+ */
+class NumericView : public UIDelegate
 {
 public:
-    CodepointView(FontStore& fontstore);
+    NumericView(FontStore& fontstore);
 
     // Implementation of UIDelegate
     // See MainUI for doc comments
     void render() override;
-    bool goto_next_mode() override;
     void set_low_byte(uint8_t value) override;
     void shift() override;
     void toggle_shift_lock() override;
@@ -24,32 +26,18 @@ public:
     void clear() override;
 
 private:
-    void render_input_feedback();
+    void render_value();
+    void render_mode_bar();
 
 private: // View state
 
-    enum DisplayMode {
-        kMode_Hex = 0,
-        kMode_Dec,
-        kMode_END
-    };
-
-    uint32_t m_codepoint = 0;
-    uint32_t m_last_codepoint = kInvalidEncoding;
-
-    bool m_shift_lock = false;
-    bool m_dirty = true;
-
-    DisplayMode m_mode = DisplayMode::kMode_Hex;
-
-private: // Drawing state
-
-    CodepointTitle m_title_display;
-    GlyphDisplay m_glyph_display;
+    uint32_t m_value = 0;
 
     UIRect m_last_draw;
     UIRect m_mode_bar_draw;
-    UIRect m_codepoint_value_draw;
 
     FontStore& m_fontstore;
+
+    bool m_shift_lock = false;
+    bool m_dirty = true;
 };

@@ -4,6 +4,7 @@
 #include "st7789.h"
 #include "ui/codepoint_view.hh"
 #include "ui/icons.hh"
+#include "ui/numeric_view.hh"
 #include "ui/utf8_view.hh"
 
 #include <stdint.h>
@@ -23,6 +24,7 @@ static FontStore s_fontstore;
 static UIDelegate* s_views[] = {
     new CodepointView(s_fontstore),
     new UTF8View(s_fontstore),
+    new NumericView(s_fontstore),
 };
 static size_t s_num_views = sizeof(s_views) / sizeof(UIDelegate*);
 

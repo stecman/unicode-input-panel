@@ -8,13 +8,13 @@ CodepointView::CodepointView(FontStore& fontstore)
       m_glyph_display(fontstore, DISPLAY_WIDTH - 20, DISPLAY_HEIGHT - 70, 10),
       m_fontstore(fontstore) {}
 
-void CodepointView::set_low_byte(uint8_t mask)
+void CodepointView::set_low_byte(uint8_t value)
 {
     const uint32_t previous = m_codepoint;
 
     // Update the low byte of the codepoint
     m_codepoint &= 0xFFFFFF00;
-    m_codepoint |= mask;
+    m_codepoint |= value;
 
     m_dirty = true;
 }
