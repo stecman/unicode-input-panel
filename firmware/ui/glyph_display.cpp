@@ -65,8 +65,10 @@ static void raster_callback_mono_line(const int y, const int count, const FT_Spa
 }
 
 
-GlyphDisplay::GlyphDisplay(FontStore& fontstore, int y_offset)
+GlyphDisplay::GlyphDisplay(FontStore& fontstore, uint16_t max_width, uint16_t max_height, int y_offset)
     : m_y_offset(y_offset),
+      m_max_width(max_width),
+      m_max_height(max_height),
       m_last_result(kResult_None),
       m_fontstore(fontstore) {}
 
@@ -205,9 +207,6 @@ bool GlyphDisplay::drawGlyph(uint32_t codepoint)
     } else {
         // Load an outline glyph so that it will fit on screen
 
-        const uint16_t max_width = DISPLAY_WIDTH - 20;
-        const uint16_t max_height = DISPLAY_HEIGHT - 70;
-
         // Start with a size that will allow 95% of glyphs fit comfortably on screen
         uint point_size = 60;
 
@@ -235,8 +234,8 @@ bool GlyphDisplay::drawGlyph(uint32_t codepoint)
 
             // Reduce font size proportionally if the glpyh won't fit on screen
             // Worst case we should only need two passes to find a fitting size
-            if (width > max_width) {
-                const uint new_size = (((max_width << 8) / width) * point_size) >> 8;
+            if (width > m_max_width) {
+                const uint new_size = (((m_max_width << 8) / width) * point_size) >> 8;
 
                 if (new_size == point_size) {
                     point_size--;
@@ -244,8 +243,8 @@ bool GlyphDisplay::drawGlyph(uint32_t codepoint)
                     point_size = new_size;
                 }
 
-            } else if (height > max_height) {
-                const uint new_size = (((max_height << 8) / height) * point_size) >> 8;
+            } else if (height > m_max_height) {
+                const uint new_size = (((m_max_height << 8) / height) * point_size) >> 8;
 
                 if (new_size == point_size) {
                     point_size--;

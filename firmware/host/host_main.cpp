@@ -87,6 +87,12 @@ void handle_keydown(const SDL_KeyboardEvent &key)
             app->set_low_byte(binary_input);
             break;
 
+        // Helper key to zero all switches
+        case SDL_SCANCODE_F4:
+            binary_input = 0;
+            app->set_low_byte(binary_input);
+            break;
+
         // Clear/Mode switch
         case SDL_SCANCODE_DELETE:
             // Clear when held
@@ -140,7 +146,7 @@ void handle_keyup(const SDL_KeyboardEvent &key)
             if (modeclear_pending) {
                 SDL_RemoveTimer(modeclear_pending);
                 modeclear_pending = 0;
-                app->goto_next_mode();
+                app->goto_next_mode(binary_input);
             }
             break;
 

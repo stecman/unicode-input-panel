@@ -2,19 +2,24 @@
 
 #include "ui/common.hh"
 #include "ui/font.hh"
+#include "ui/main_ui.hh"
+
+#pragma once
+
+#include "ui/common.hh"
+#include "ui/font.hh"
 #include "ui/glyph_display.hh"
 #include "ui/main_ui.hh"
 
-class CodepointView : public UIDelegate
+class UTF8View : public UIDelegate
 {
 public:
-    CodepointView(FontStore& fontstore);
+    UTF8View(FontStore& fontstore);
 
     // Implementation of UIDelegate
     // See MainUI for doc comments
     void render() override;
-    bool goto_next_mode() override;
-    void set_low_byte(uint8_t mask) override;
+    void set_low_byte(uint8_t value) override;
     void shift() override;
     void toggle_shift_lock() override;
     void reset() override;
@@ -24,32 +29,31 @@ public:
     void clear() override;
 
 private:
-    void render_input_feedback();
+    void render_large_input_help();
+    void render_small_input_help();
+    void render_invalid_banner();
+    void render_byte(UIFontPen &pen, uint index, char* str, uint16_t text_width, UIRect &painted);
+    void render_mode_bar();
 
 private: // View state
-
-    enum DisplayMode {
-        kMode_Hex = 0,
-        kMode_Dec,
-        kMode_END
-    };
-
-    uint32_t m_codepoint = 0;
-    uint32_t m_last_codepoint = kInvalidEncoding;
+    uint8_t m_buffer[4];
+    uint8_t m_index;
 
     bool m_shift_lock = false;
     bool m_dirty = true;
-
-    DisplayMode m_mode = DisplayMode::kMode_Hex;
 
 private: // Drawing state
 
     CodepointTitle m_title_display;
     GlyphDisplay m_glyph_display;
 
-    UIRect m_last_draw;
-    UIRect m_mode_bar_draw;
+    UIRect m_invalid_encoding;
     UIRect m_codepoint_value_draw;
+    UIRect m_small_help;
+    UIRect m_large_help;
+    UIRect m_mode_bar_draw;
+
+    uint32_t m_last_length;
 
     FontStore& m_fontstore;
 };

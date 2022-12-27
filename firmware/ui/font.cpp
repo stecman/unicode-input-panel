@@ -324,6 +324,7 @@ UIFontPen::UIFontPen(const uint8_t* fontdata, size_t length, FT_Library library)
     : m_ft_library(library),
       m_x(0),
       m_y(0),
+      m_strlen(0),
       m_colour(0xFFFFFF),
       m_background(0),
       m_size_px(16),
@@ -362,7 +363,7 @@ void UIFontPen::set_size(uint16_t size_px)
     FT_Set_Pixel_Sizes(ms_face, 0, size_px);
 }
 
-uint16_t UIFontPen::compute_px_width(const char* str)
+uint16_t UIFontPen::compute_px_width(const char* str, uint16_t length_limit)
 {
     if (ms_face == nullptr) {
         printf("Unable to compute width as the face is in an error state\n");
@@ -377,6 +378,11 @@ uint16_t UIFontPen::compute_px_width(const char* str)
             FT_Load_Char(ms_face, str[index], FT_LOAD_DEFAULT | FT_LOAD_BITMAP_METRICS_ONLY);
             px_width += ms_face->glyph->advance.x / 64;
             index++;
+
+            if (length_limit != 0 && index >= length_limit) {
+                // Length limit hit
+                break;
+            }
         }
     }
 
@@ -385,6 +391,12 @@ uint16_t UIFontPen::compute_px_width(const char* str)
     }
 
     return px_width;
+}
+
+UIRect UIFontPen::draw_length(const char* str, uint16_t length)
+{
+    m_strlen = length;
+    return draw(str, compute_px_width(str, length));
 }
 
 UIRect UIFontPen::draw(const char* str)
@@ -487,6 +499,12 @@ UIRect UIFontPen::draw(const char* str, const uint16_t canvas_width_px)
 
         state.buf_x += slot->advance.x / 64;
         index++;
+
+        if (m_strlen != 0 && index >= m_strlen) {
+            // String length limit was provided for this draw
+            m_strlen = 0;
+            break;
+        }
     }
 
     // Send rendered line to screen if needed

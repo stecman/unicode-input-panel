@@ -24,6 +24,11 @@ void UIRect::clamp(int16_t min_x, int16_t min_y, int16_t max_x, int16_t max_y)
 
 void UIRect::merge(const UIRect &other)
 {
+    if (!is_valid()) {
+        *this = other;
+        return;
+    }
+
     const int16_t x2 = std::max(x + width, other.x + other.width);
     const int16_t y2 = std::max(y + height, other.y + other.height);
 
@@ -240,10 +245,13 @@ static const char* s_invalid_codepoint = "INVALID CODEPOINT";
 CodepointTitle::CodepointTitle(FontStore& fontstore)
     : m_fontstore(fontstore),
       m_block_label(nullptr, 0, 25),
-      m_codepoint_label(nullptr, 23, 10){}
+      m_codepoint_label(nullptr, 23, 10),
+      m_hidden(true) {}
 
 void CodepointTitle::update_labels(const char* block_name, const char* codepoint_name)
-{    
+{
+    m_hidden = false;
+
     if (block_name == NULL && codepoint_name == NULL) {
         // Invalid codepoint: a banner will be drawn indicating this next render
         m_block_label.clear();
@@ -266,12 +274,20 @@ void CodepointTitle::update_labels(const char* block_name, const char* codepoint
 void CodepointTitle::clear()
 {
     m_title_draw.blank_and_invalidate();
+
     m_block_label.clear();
     m_codepoint_label.clear();
+
+    m_hidden = true;
 }
 
 void CodepointTitle::render()
 {
+    if (m_hidden) {
+        // Not drawing currently
+        return;
+    }
+
     if (m_block_label.value() == NULL) {
 
         // Draw the "invalid codepoint" banner if it hasn't been drawn yet

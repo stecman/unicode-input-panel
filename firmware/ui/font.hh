@@ -43,8 +43,20 @@ public:
 
     UIFontPen(const uint8_t* fontdata, size_t length, FT_Library library);
 
+    /**
+     * Draw the complete null-terminated string, calculating canvas size automatically
+     */
     UIRect draw(const char* str);
+
+    /**
+     * Draw the complete null-terminated string using a pre-calculated canvas size
+     */
     UIRect draw(const char* str, const uint16_t canvas_width_px);
+
+    /**
+     * Draw a limited length of the passed string, calculating canvas size automatically
+     */
+    UIRect draw_length(const char* str, uint16_t length);
 
     /**
      * Set the font size in pixels
@@ -54,7 +66,7 @@ public:
     /**
      * Compute how wide a string will be in pixels at the current size
      */
-    uint16_t compute_px_width(const char* str);
+    uint16_t compute_px_width(const char* str, uint16_t length_limit = 0);
 
     /**
      * Set the top-left corner of the next draw operation
@@ -110,6 +122,7 @@ private:
 
     int16_t m_x;
     int16_t m_y;
+    uint16_t m_strlen;
 
     uint32_t m_colour;
     uint32_t m_background;

@@ -17,6 +17,11 @@ public:
     virtual const std::vector<uint32_t> get_codepoints() = 0;
 
     /**
+     * Get the underlying data being manipulated by the input switches
+     */
+    virtual std::vector<uint8_t> get_buffer() = 0;
+
+    /**
      * Go to the next available display mode in this view
      * Returns false if all available display modes have been exhausted.
      */
@@ -25,6 +30,11 @@ public:
         // No modes by default
         return false;
     }
+
+    /**
+     * Clear screen, making it ready for another view
+     */
+    virtual void clear() = 0;
 };
 
 class MainUI {
@@ -65,7 +75,7 @@ public:
     /**
      * Change to the next available display mode
      */
-    void goto_next_mode();
+    void goto_next_mode(uint8_t input_switches);
 
     /**
      * Perform a manual reset/clear

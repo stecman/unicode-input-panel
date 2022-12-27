@@ -145,6 +145,7 @@ private:
     UIRect m_title_draw;
     ScrollingLabel m_block_label;
     ScrollingLabel m_codepoint_label;
+    bool m_hidden;
 };
 
 /**

@@ -364,7 +364,7 @@ int main()
             if (modeclear_switch.was_long_pressed()) {
                 app.reset();
             } else if (modeclear_switch.was_short_pressed()) {
-                app.goto_next_mode();
+                app.goto_next_mode(input);
             }
 
             if (send_switch.pressed()) {

@@ -5,7 +5,7 @@
 
 CodepointView::CodepointView(FontStore& fontstore)
     : m_title_display(fontstore),
-      m_glyph_display(fontstore, 10),
+      m_glyph_display(fontstore, DISPLAY_WIDTH - 20, DISPLAY_HEIGHT - 70, 10),
       m_fontstore(fontstore) {}
 
 void CodepointView::set_low_byte(uint8_t mask)
@@ -76,10 +76,10 @@ void CodepointView::render() {
         if (m_codepoint != m_last_codepoint) {
             const char* block_name = uc_get_block_name(m_codepoint);
             const char* codepoint_name = uc_get_codepoint_name(m_codepoint);
-            const bool is_valid = block_name != nullptr && codepoint_name != nullptr;
+            const bool is_valid = block_name != nullptr;
             
-            m_title_display.update_labels(block_name, codepoint_name);
             m_glyph_display.draw(m_codepoint, is_valid);
+            m_title_display.update_labels(block_name, codepoint_name);
 
             m_last_codepoint = m_codepoint;
         }
@@ -92,8 +92,6 @@ void CodepointView::render() {
 
 void CodepointView::render_input_feedback()
 {
-    static UIRect value_area;
-
     char _buf[12];
     char* str = (char*) &_buf;
     uint16_t text_width;
@@ -102,7 +100,7 @@ void CodepointView::render_input_feedback()
     {
         UIFontPen pen = m_fontstore.get_monospace_pen();
         // UIFontPen pen = m_fontstore.get_pen();
-        pen.set_render_mode(UIFontPen::kMode_DirectToScreen);
+        pen.set_render_mode(UIFontPen::kMode_CanvasBuffer);
         pen.set_size(20);
         pen.set_embolden(80);
 
@@ -118,8 +116,9 @@ void CodepointView::render_input_feedback()
         
         pen.move_to(DISPLAY_WIDTH/2 - text_width/2, DISPLAY_HEIGHT - 24);
 
-        value_area.blank_and_invalidate();
-        value_area = pen.draw(str, text_width);
+        UIRect area = pen.draw(str, text_width);
+        m_codepoint_value_draw.diff_blank(area);
+        m_codepoint_value_draw = area;
     }
 
     // Flags
@@ -142,7 +141,7 @@ void CodepointView::render_input_feedback()
             }
 
             pen.move_to(22, DISPLAY_HEIGHT - 20);
-            pen.draw(text);
+            m_mode_bar_draw += pen.draw(text);
         }
 
         // Shift lock status
@@ -156,9 +155,29 @@ void CodepointView::render_input_feedback()
             }
 
             pen.move_to(DISPLAY_WIDTH - 51, DISPLAY_HEIGHT - 20);
-            pen.draw(_lock_text);
+            m_mode_bar_draw += pen.draw(_lock_text);
         }
 
     }
 }
 
+std::vector<uint8_t> CodepointView::get_buffer()
+{
+    return {
+        static_cast<uint8_t>(m_codepoint >> 24),
+        static_cast<uint8_t>(m_codepoint >> 16),
+        static_cast<uint8_t>(m_codepoint >> 8),
+        static_cast<uint8_t>(m_codepoint)
+    };
+}
+
+void CodepointView::clear()
+{
+    m_title_display.clear();
+    m_glyph_display.clear();
+
+    m_last_draw.blank_and_invalidate();
+    m_mode_bar_draw.blank_and_invalidate();
+
+    m_last_codepoint = kInvalidEncoding;
+}

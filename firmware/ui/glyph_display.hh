@@ -12,7 +12,7 @@ public:
     /**
      * @param y_offset - Offset the glyph from the default center of the screen
      */
-    GlyphDisplay(FontStore& fontstore, int y_offset = 0);
+    GlyphDisplay(FontStore& fontstore, uint16_t max_width, uint16_t max_height, int y_offset = 0);
 
     /**
      * Draw the passed codepoint centered on screen
@@ -48,6 +48,10 @@ private:
 
     // Vertical offset from screen center
     int m_y_offset;
+
+    // Size constraints for rendering
+    const uint16_t m_max_width;
+    const uint16_t m_max_height;
 
     Result m_last_result;
 

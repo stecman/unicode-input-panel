@@ -159,6 +159,7 @@ set(BASE_SOURCES
 	ui/glyph_display.cpp
 	ui/icons.cpp
 	ui/main_ui.cpp
+	ui/utf8_view.cpp
 	unicode_db.cpp
 	util.cpp
 
