@@ -21,7 +21,7 @@ public:
     void render() override;
     void set_low_byte(uint8_t value) override;
     void shift() override;
-    void toggle_shift_lock() override;
+    void set_shift_lock(bool enabled) override;
     void reset() override;
     void flush_buffer() override;
     const std::vector<uint32_t> get_codepoints() override;

@@ -21,9 +21,9 @@ void NumericView::shift()
     m_dirty = true;
 }
 
-void NumericView::toggle_shift_lock()
+void NumericView::set_shift_lock(bool enabled)
 {
-    m_shift_lock = !m_shift_lock;
+    m_shift_lock = enabled;
     m_dirty = true;
 }
 
@@ -36,7 +36,6 @@ void NumericView::flush_buffer()
 
 void NumericView::reset()
 {
-    m_shift_lock = false;
     m_value = m_value & 0xFF;
     m_dirty = true;
 }

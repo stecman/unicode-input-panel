@@ -73,9 +73,9 @@ void UTF8View::shift()
     m_dirty = true;
 }
 
-void UTF8View::toggle_shift_lock()
+void UTF8View::set_shift_lock(bool enabled)
 {
-    m_shift_lock = !m_shift_lock;
+    m_shift_lock = enabled;
     m_dirty = true;
 }
 
@@ -88,8 +88,6 @@ void UTF8View::flush_buffer()
 
 void UTF8View::reset()
 {
-    m_shift_lock = false;
-
     m_buffer[0] = m_buffer[m_index];
     m_buffer[1] = 0;
     m_buffer[2] = 0;

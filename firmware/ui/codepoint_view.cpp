@@ -26,9 +26,9 @@ void CodepointView::shift()
     m_dirty = true;
 }
 
-void CodepointView::toggle_shift_lock()
+void CodepointView::set_shift_lock(bool enabled)
 {
-    m_shift_lock = !m_shift_lock;
+    m_shift_lock = enabled;
     m_dirty = true;
 }
 
@@ -41,7 +41,6 @@ void CodepointView::flush_buffer()
 
 void CodepointView::reset()
 {
-    m_shift_lock = false;
     m_codepoint = m_codepoint & 0xFF;
     m_dirty = true;
 }

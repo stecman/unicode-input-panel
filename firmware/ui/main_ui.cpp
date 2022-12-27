@@ -31,7 +31,8 @@ static size_t s_num_views = sizeof(s_views) / sizeof(UIDelegate*);
 
 MainUI::MainUI()
     : m_view_index(0),
-      m_view(s_views[0])
+      m_view(s_views[0]),
+      m_shift_lock(false)
 {
     UIRect erase_rect;
 
@@ -103,12 +104,16 @@ void MainUI::shift()
 
 void MainUI::toggle_shift_lock()
 {
-    m_view->toggle_shift_lock();
+    m_shift_lock = !m_shift_lock;
+    m_view->set_shift_lock(m_shift_lock);
 }
 
 void MainUI::reset()
 {
     m_view->reset();
+
+    m_shift_lock = false;
+    m_view->set_shift_lock(m_shift_lock);
 }
 
 void MainUI::flush_buffer()
@@ -137,6 +142,7 @@ void MainUI::goto_next_mode(uint8_t input_switches)
 
     UIDelegate* last_view = m_view;
     m_view = s_views[m_view_index];
+    m_view->set_shift_lock(m_shift_lock);
 
     last_view->clear();
 

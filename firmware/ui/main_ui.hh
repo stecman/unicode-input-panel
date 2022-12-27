@@ -11,7 +11,7 @@ public:
     virtual void render() = 0;
     virtual void set_low_byte(uint8_t value) = 0;
     virtual void shift() = 0;
-    virtual void toggle_shift_lock() = 0;
+    virtual void set_shift_lock(bool enabled) = 0;
     virtual void reset() = 0;
     virtual void flush_buffer() = 0;
     virtual const std::vector<uint32_t> get_codepoints() = 0;
@@ -97,4 +97,5 @@ public:
 private:
     UIDelegate* m_view;
     size_t m_view_index;
+    bool m_shift_lock;
 };
