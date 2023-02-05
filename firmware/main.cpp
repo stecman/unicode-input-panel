@@ -57,7 +57,7 @@ uint8_t get_input_byte()
 class UserInput
 {
 public:
-    UserInput(uint gpio) : m_gpio(gpio) {}
+    UserInput(uint32_t gpio) : m_gpio(gpio) {}
 
     void update()
     {
@@ -110,7 +110,7 @@ public:
     }
 
 private:
-    uint m_gpio;
+    uint32_t m_gpio;
 
     // Time to trigger a long press, or zero if not pressed
     absolute_time_t m_long_press = 0;
@@ -231,8 +231,8 @@ private:
 
     absolute_time_t m_next_send = 0;
 
-    uint m_index = 0;
-    uint m_queue_size = 0;
+    uint32_t m_index = 0;
+    uint32_t m_queue_size = 0;
     uint8_t m_key_queue[32] = {};
     uint8_t m_keymap[6] = {};
     State m_state = CodepointSender::kSendLeader;
@@ -277,7 +277,7 @@ int main()
 
 		gpio_set_function(PIN_DISP_BKLGHT, GPIO_FUNC_PWM);
 
-	    const uint slice_num = pwm_gpio_to_slice_num(PIN_DISP_BKLGHT);
+	    const uint32_t slice_num = pwm_gpio_to_slice_num(PIN_DISP_BKLGHT);
 	    pwm_set_wrap(slice_num, 1024);
 	    pwm_set_chan_level(slice_num, PWM_CHAN_A, 512);
 	    pwm_set_enabled(slice_num, true);
@@ -292,7 +292,7 @@ int main()
 	// Enable SPI0 for screen
 	spi_init(spi0, 32e6);
 
-    const uint LED_PIN = PICO_DEFAULT_LED_PIN;
+    const uint32_t LED_PIN = PICO_DEFAULT_LED_PIN;
     gpio_init(LED_PIN);
     gpio_set_dir(LED_PIN, GPIO_OUT);
 
@@ -305,13 +305,13 @@ int main()
     st7789_vertical_scroll(300);
 
     // Start the application
-    MainUI app;
+    MainUI app("fonts");
 
     // Turn on data input LEDs (inverted as this drives a P-channel mosfet)
     {
         gpio_set_function(PIN_LED_PWM, GPIO_FUNC_PWM);
 
-	    const uint slice_num = pwm_gpio_to_slice_num(PIN_LED_PWM);
+	    const uint32_t slice_num = pwm_gpio_to_slice_num(PIN_LED_PWM);
 	    pwm_set_wrap(slice_num, 1024);
 	    pwm_set_chan_level(slice_num, PWM_CHAN_A, 512);
 	    pwm_set_enabled(slice_num, true);

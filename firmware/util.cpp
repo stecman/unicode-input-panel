@@ -5,7 +5,7 @@ const char* codepoint_to_utf8(uint32_t codepoint)
     static char output[5];
 
     uint8_t stack[4];
-    uint index = 0;
+    uint32_t index = 0;
 
     if (codepoint <= 0x7F) {
         stack[index++] = codepoint;
@@ -25,8 +25,8 @@ const char* codepoint_to_utf8(uint32_t codepoint)
         return nullptr;
     }
 
-    const uint numbytes = index;
-    for (uint i = 0; i < numbytes; i++) {
+    const uint32_t numbytes = index;
+    for (uint32_t i = 0; i < numbytes; i++) {
         output[i] = stack[--index];
     }
 

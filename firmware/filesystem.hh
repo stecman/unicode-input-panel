@@ -26,6 +26,11 @@ int mount();
 FT_Error load_face(const char* path, FT_Library library, FT_Face* face);
 
 /**
+ * Check if a path is a directory on disk
+ */
+bool is_dir(const char* path);
+
+/**
  * Visit each file in the passed directory
  */
 void walkdir(const char* dirpath,
@@ -35,9 +40,9 @@ void walkdir(const char* dirpath,
  * Calculate percentage (value/max) as a full 8-bit range, where 0x0=0% and 0xFF=100%
  * Uses fixed point math as the Pico lacks a FPU
  */
-inline uint8_t fp_progress(uint value, uint max)
+inline uint8_t fp_progress(uint32_t value, uint32_t max)
 {
-    return std::clamp(((value << 8) / max), (uint) 0, (uint) 255);
+    return std::clamp(((value << 8) / max), (uint32_t) 0, (uint32_t) 255);
 }
 
 inline bool ends_with(std::string const & value, std::string const & ending)

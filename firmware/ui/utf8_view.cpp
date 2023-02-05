@@ -34,7 +34,7 @@ static uint32_t guess_encoding_length(uint8_t byte0)
  */
 void format_binary_literal(uint8_t byte, char out[9])
 {
-    uint i = 8;
+    uint_fast8_t i = 8;
     out += i;
 
     while (i--) {
@@ -172,7 +172,7 @@ void UTF8View::render_large_input_help()
     uint16_t text_width;
 
     const int line_height = 45;
-    const uint length = guess_encoding_length(m_buffer[0]);
+    const uint32_t length = guess_encoding_length(m_buffer[0]);
 
     if (length != m_last_length) {
         m_large_help.blank_and_invalidate();
@@ -186,7 +186,7 @@ void UTF8View::render_large_input_help()
     const int32_t pullup = (length * line_height) / 2;
     const int32_t start_y = DISPLAY_HEIGHT/2 - pullup + 5;
 
-    for (uint i = 0; i < length; i++){
+    for (uint32_t i = 0; i < length; i++){
         char* str = (char*) &_buf;
         format_binary_literal(m_buffer[i], str);
         text_width = pen.compute_px_width(str);
@@ -203,7 +203,7 @@ void UTF8View::render_small_input_help()
     char _buf[12];
     uint16_t text_width;
 
-    const uint length = guess_encoding_length(m_buffer[0]);
+    const uint32_t length = guess_encoding_length(m_buffer[0]);
 
     if (length != m_last_length) {
         m_small_help.blank_and_invalidate();
@@ -218,7 +218,7 @@ void UTF8View::render_small_input_help()
     const int spacing = 5;
     pen.move_to(start_x - spacing, DISPLAY_HEIGHT - 40);
 
-    for (uint i = 0; i < length; i++){
+    for (uint32_t i = 0; i < length; i++){
         char* str = (char*) &_buf;
         format_binary_literal(m_buffer[i], str);
         text_width = pen.compute_px_width(str);
@@ -234,7 +234,7 @@ void UTF8View::render_small_input_help()
  * Render a base-two string using the passed pen
  * The caller should set up the position and font size before calling
  */
-void UTF8View::render_byte(UIFontPen &pen, uint index, char* str, uint16_t text_width, UIRect &painted)
+void UTF8View::render_byte(UIFontPen &pen, uint32_t index, char* str, uint16_t text_width, UIRect &painted)
 {
     const uint8_t byte = m_buffer[index];
 

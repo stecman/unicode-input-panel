@@ -43,13 +43,13 @@ static void raster_callback_mono_line(const int y, const int count, const FT_Spa
     uint8_t* buf = st7789_line_buffer();
     memset(buf, 0, ST7789_LINE_BUF_SIZE);
 
-    for (uint i = 0; i < count; i++) {
+    for (int i = 0; i < count; i++) {
         const auto &span = spans[i];
 
         uint8_t* local_buf = buf + span.x * 3;
         const uint8_t value = span.coverage;
 
-        for (uint k = 0; k < span.len; k++) {
+        for (unsigned short k = 0; k < span.len; k++) {
             *(local_buf++) = value;
             *(local_buf++) = value;
             *(local_buf++) = value;
@@ -186,11 +186,11 @@ bool GlyphDisplay::drawGlyph(uint32_t codepoint)
 
         const int target_size_px = 128;
 
-        uint best_index = 0;
-        uint best_delta = 0xFFFF;
+        int best_index = 0;
+        int best_delta = 0xFFFF;
 
-        for (uint i = 0; i < face->num_fixed_sizes; i++) {
-            const uint delta = std::abs(target_size_px - face->available_sizes[i].height);
+        for (int i = 0; i < face->num_fixed_sizes; i++) {
+            const int delta = std::abs(target_size_px - face->available_sizes[i].height);
             if (delta < best_delta) {
                 best_index = i;
                 best_delta = delta;
@@ -208,7 +208,7 @@ bool GlyphDisplay::drawGlyph(uint32_t codepoint)
         // Load an outline glyph so that it will fit on screen
 
         // Start with a size that will allow 95% of glyphs fit comfortably on screen
-        uint point_size = 60;
+        FT_UInt point_size = 60;
 
         while (point_size != 0) {
             FT_Set_Char_Size(
@@ -220,7 +220,7 @@ bool GlyphDisplay::drawGlyph(uint32_t codepoint)
             // Load without auto-hinting, since hinting data isn't used with FT_Outline_Render
             // and auto-hinting can be memory intensive on complex glyphs. FT_LOAD_NO_HINTING
             // appears to make the font metrics inaccurate so I'm not using that here.
-            const uint flags = FT_LOAD_DEFAULT | FT_LOAD_COMPUTE_METRICS | FT_LOAD_NO_AUTOHINT;
+            const uint32_t flags = FT_LOAD_DEFAULT | FT_LOAD_COMPUTE_METRICS | FT_LOAD_NO_AUTOHINT;
             error = FT_Load_Char(face, codepoint, flags);
 
             // Get dimensions, rouded up
@@ -235,7 +235,7 @@ bool GlyphDisplay::drawGlyph(uint32_t codepoint)
             // Reduce font size proportionally if the glpyh won't fit on screen
             // Worst case we should only need two passes to find a fitting size
             if (width > m_max_width) {
-                const uint new_size = (((m_max_width << 8) / width) * point_size) >> 8;
+                const uint32_t new_size = (((m_max_width << 8) / width) * point_size) >> 8;
 
                 if (new_size == point_size) {
                     point_size--;
@@ -244,7 +244,7 @@ bool GlyphDisplay::drawGlyph(uint32_t codepoint)
                 }
 
             } else if (height > m_max_height) {
-                const uint new_size = (((m_max_height << 8) / height) * point_size) >> 8;
+                const uint32_t new_size = (((m_max_height << 8) / height) * point_size) >> 8;
 
                 if (new_size == point_size) {
                     point_size--;
@@ -316,11 +316,11 @@ bool GlyphDisplay::drawGlyph(uint32_t codepoint)
         if (slot->bitmap.pixel_mode == FT_PIXEL_MODE_BGRA) {
             uint8_t* src = slot->bitmap.buffer;
 
-            for (uint y = 0; y < height; y++) {
+            for (int y = 0; y < height; y++) {
                 uint8_t* buf = st7789_line_buffer();
                 uint8_t* ptr = buf;
 
-                for (uint x = 0; x < width; x++) {
+                for (int x = 0; x < width; x++) {
                     const uint8_t b = *(src++);
                     const uint8_t g = *(src++);
                     const uint8_t r = *(src++);
@@ -337,11 +337,11 @@ bool GlyphDisplay::drawGlyph(uint32_t codepoint)
         } else {
             uint8_t* src = slot->bitmap.buffer;
 
-            for (uint y = 0; y < height; y++) {
+            for (int y = 0; y < height; y++) {
                 uint8_t* buf = st7789_line_buffer();
                 uint8_t* ptr = buf;
 
-                for (uint x = 0; x < width; x++) {
+                for (int x = 0; x < width; x++) {
                     const uint8_t v = *src++;
 
                     *(ptr++) = v;

@@ -22,7 +22,7 @@ static unsigned long _read_stream(FT_Stream stream,
         // Seek only
         return 0;
     }
-        
+
     return fread(buffer, 1, count, fp);
 }
 
@@ -43,10 +43,15 @@ int mount()
     return 0;
 }
 
+bool is_dir(const char* path)
+{
+    return std::filesystem::is_directory(path);
+}
+
 void walkdir(const char* dirpath, const std::function<void(const char* abspath, uint8_t progress)> &callback)
 {
-    uint total = 0;
-    uint current = 0;
+    uint32_t total = 0;
+    uint32_t current = 0;
 
     // Count for calculating progress
     for (const auto &entry : std::filesystem::directory_iterator(dirpath)) {

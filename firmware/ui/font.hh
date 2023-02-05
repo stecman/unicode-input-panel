@@ -182,7 +182,7 @@ private:
      * Load an indexed font by its registered id
      * Returns nullptr if no font is valid for the given index
      */
-    FT_Face loadFace(uint id);
+    FT_Face loadFace(uint32_t id);
 
     // Codepoint lookup
     FontIndexer m_indexer;
@@ -192,7 +192,7 @@ private:
 
     // Currently loaded font face
     FT_Face m_face;
-    uint m_active_id;
+    uint32_t m_active_id;
 
     // Table of registered fonts
     std::vector<std::string> m_font_table;

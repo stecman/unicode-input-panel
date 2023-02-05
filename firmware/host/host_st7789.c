@@ -120,7 +120,7 @@ void st7789_fill_window(uint8_t pixel, uint16_t x, uint16_t y, uint16_t width, u
 {
     st7789_set_window(x, y, x + width, y + height);
 
-    for (uint i = 0; i < width * height; i++) {
+    for (uint32_t i = 0; i < width * height; i++) {
         cursor_put(to_rgb(pixel, pixel, pixel));
     }
 }
@@ -129,7 +129,7 @@ void st7789_fill_window_colour(uint32_t pixel, uint16_t x, uint16_t y, uint16_t 
 {
     st7789_set_window(x, y, x + width, y + height);
 
-    for (uint i = 0; i < width * height; i++) {
+    for (uint32_t i = 0; i < width * height; i++) {
         cursor_put(pixel);
     }
 }
@@ -138,7 +138,7 @@ void st7789_fill_colour(uint32_t pixel)
 {
     st7789_set_window(0, 0, s_width, s_height);
 
-    for (uint i = 0; i < s_width * s_height; i++) {
+    for (uint32_t i = 0; i < s_width * s_height; i++) {
         cursor_put(pixel);
     }
 }

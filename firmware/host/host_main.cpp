@@ -19,11 +19,50 @@ static SDL_TimerID modeclear_pending = 0;
 static SDL_TimerID shift_pending = 0;
 
 static MainUI* app = nullptr;
+static bool needs_render = true;
+static SDL_Rect vscreen_dest;
+
+const char* s_font_path = nullptr;
+
+#ifdef EMSCRIPTEN
+// Emscripten doesn't support embedding assets directly in the binary
+// We emulate this by loading from the virtual filesystem during start instead
+#include <emscripten.h>
+
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <string>
+
+#include "embeds.hh"
+
+std::vector<std::string> _loaded_files;
+
+void load_embed(const char* path, const uint8_t** start, const uint8_t** end)
+{
+    std::ifstream t(path, std::ios::binary);
+    std::stringstream buffer;
+    buffer << t.rdbuf();
+
+    auto &contents = _loaded_files.emplace_back(buffer.str());
+
+    *start = (const uint8_t*) contents.c_str();
+    *end = (*start) + contents.size();
+}
+
+void load_binary_embeds(void)
+{
+    using namespace assets;
+    load_embed("assets/OpenSans-Regular-Stripped.ttf", &opensans_ttf, &opensans_ttf_end);
+    load_embed("assets/NotoSansMono-Regular-Stripped.otf", &notomono_otf, &notomono_otf_end);
+    load_embed("assets/unicode-logo.png", &unicode_logo_png, &unicode_logo_png_end);
+}
+#endif
 
 void init_app()
 {
     printf("Starting MainUI...\n");
-    app = new MainUI();
+    app = new MainUI(s_font_path);
 }
 
 void handle_keydown(const SDL_KeyboardEvent &key)
@@ -162,10 +201,103 @@ void handle_keyup(const SDL_KeyboardEvent &key)
     }
 }
 
-int main()
+void handle_event(SDL_Event& event)
 {
-    const uint kDisplayScaling = 4;
-    const uint kDisplayPadding = 50;
+    switch (event.type) {
+        case SDL_KEYDOWN:
+            // Ignore repeats
+            if (event.key.repeat) {
+                return;
+            }
+
+            handle_keydown(event.key);
+            break;
+
+        case SDL_KEYUP:
+            // Ignore repeats
+            if (event.key.repeat) {
+                return;
+            }
+
+            handle_keyup(event.key);
+            break;
+
+        case SDL_QUIT:
+            printf("Caught quit signal...\n");
+            app_terminated = true;
+            break;
+    }
+}
+
+void main_loop()
+{
+    // Update display if needed
+    if (needs_render) {
+        needs_render = false;
+
+        // Set border colour
+        SDL_SetRenderDrawColor(renderer, 205, 205, 205, 255);
+        SDL_RenderClear(renderer);
+
+        // Update switch indicators
+        {
+            int total_width = 0;
+            int total_height = 0;
+            SDL_GetWindowSize(screen, &total_width, &total_height);
+
+            SDL_Rect indicator;
+            indicator.w = 15;
+            indicator.h = 15;
+            indicator.x = 0;
+            indicator.y = total_height - 20;
+
+            const int indicator_spacing = (total_width - indicator.w)/8;
+
+            for (uint32_t i = 0; i < 8; i++) {
+                indicator.x = (indicator_spacing * (7 - i)) + (indicator_spacing/2);
+
+                if ((binary_input >> i) & 1) {
+                    SDL_SetRenderDrawColor(renderer, 200, 10, 0, 255);
+                } else {
+                    SDL_SetRenderDrawColor(renderer, 110, 100, 100, 255);
+                }
+
+                SDL_RenderFillRect(renderer, &indicator);
+            }
+        }
+
+        // Update virtual display
+        SDL_UpdateTexture(screen_texture, NULL, px_buffer, DISPLAY_WIDTH * 4);
+        SDL_RenderCopy(renderer, screen_texture, NULL, &vscreen_dest);
+        SDL_RenderPresent(renderer);
+    }
+
+    if (app != nullptr) {
+        // Poll for events (loops until there are no more events to process)
+        SDL_Event event;
+        while( SDL_WaitEventTimeout( &event, 1) ){
+            handle_event(event);
+        }
+    }
+}
+
+int main(int argc, const char* argv[])
+{
+#ifdef EMSCRIPTEN
+    s_font_path = "assets/fonts";
+    load_binary_embeds();
+    emscripten_set_main_loop(main_loop, 0, 0);
+#else
+    if (argc < 2) {
+        printf("Usage:\n  %s <fonts-dir>\n", argv[0]);
+        return 1;
+    }
+
+    s_font_path = argv[1];
+#endif
+
+    const uint32_t kDisplayScaling = 2;
+    const uint32_t kDisplayPadding = 50;
 
     if(SDL_Init(SDL_INIT_VIDEO) != 0) {
         fprintf(stderr, "Could not init SDL: %s\n", SDL_GetError());
@@ -202,7 +334,6 @@ int main()
 
     // Update the virtual display from the pixel data at 60Hz
     // This approximates how the actual display device works
-    bool needs_render = true;
     SDL_AddTimer(1000/60 /* milliseconds */, [](Uint32 interval, void *param) -> Uint32 {
         bool* needs_render = (bool*) param;
         *needs_render = true;
@@ -216,87 +347,22 @@ int main()
     }, nullptr);
 
     // Location to render virtual screen
-    SDL_Rect vscreen_dest;
     vscreen_dest.x = kDisplayPadding;
     vscreen_dest.y = kDisplayPadding;
     vscreen_dest.w = DISPLAY_WIDTH * kDisplayScaling;
     vscreen_dest.h = DISPLAY_HEIGHT * kDisplayScaling;
 
+#ifdef EMSCRIPTEN
+    // Run the application
+    // FIXME: This won't show the loading screen due to it rendering during construction
+    app = new MainUI(s_font_path);
+
+#else
     // Start application on a background thread
     // Needed as initialisation is a blocking process that also updates the display
     std::thread app_thread(init_app);
-
     while (!app_terminated) {
-
-        // Update display if needed
-        if (needs_render) {
-            needs_render = false;
-
-            // Set border colour
-            SDL_SetRenderDrawColor(renderer, 205, 205, 205, 255);
-            SDL_RenderClear(renderer);
-
-            // Update switch indicators
-            {
-                int total_width = 0;
-                int total_height = 0;
-                SDL_GetWindowSize(screen, &total_width, &total_height);
-
-                SDL_Rect indicator;
-                indicator.w = 15;
-                indicator.h = 15;
-                indicator.x = 0;
-                indicator.y = total_height - 20;
-
-                const int indicator_spacing = (total_width - indicator.w)/8;
-
-                for (uint i = 0; i < 8; i++) {
-                    indicator.x = (indicator_spacing * (7 - i)) + (indicator_spacing/2);
-
-                    if ((binary_input >> i) & 1) {
-                        SDL_SetRenderDrawColor(renderer, 200, 10, 0, 255);
-                    } else {
-                        SDL_SetRenderDrawColor(renderer, 110, 100, 100, 255);
-                    }
-
-                    SDL_RenderFillRect(renderer, &indicator);
-                }
-            }
-
-            // Update virtual display
-            SDL_UpdateTexture(screen_texture, NULL, px_buffer, DISPLAY_WIDTH * 4);
-            SDL_RenderCopy(renderer, screen_texture, NULL, &vscreen_dest);
-            SDL_RenderPresent(renderer);
-        }
-
-        // Poll for events (loops until there are no more events to process)
-        SDL_Event event;
-        while( SDL_WaitEventTimeout( &event, 1) ){
-            switch (event.type) {
-                case SDL_KEYDOWN:
-                    // Ignore repeats
-                    if (event.key.repeat) {
-                        continue;
-                    }
-
-                    handle_keydown(event.key);
-                    break;
-
-                case SDL_KEYUP:
-                    // Ignore repeats
-                    if (event.key.repeat) {
-                        continue;
-                    }
-
-                    handle_keyup(event.key);
-                    break;
-
-                case SDL_QUIT:
-                    printf("Caught quit signal...\n");
-                    app_terminated = true;
-                    break;
-            }
-        }
+        main_loop();
     }
 
     // Wait for any background task that's still running
@@ -306,6 +372,7 @@ int main()
     SDL_Quit();
 
     free(px_buffer);
+#endif
 
     return 0;
 }

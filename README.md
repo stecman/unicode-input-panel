@@ -32,7 +32,7 @@ end of this readme.
 
 You'll need an internet connection for the initial configuration as CMake will
 automatically download several dependencies that need to be built from source
-(FreeType, harfbuzz, libpng, zlib), and some of [Unicode's data tables](https://unicode.org/Public/UNIDATA/).
+(FreeType, libpng, zlib), and some of [Unicode's data tables](https://unicode.org/Public/UNIDATA/).
 
 ### Command-line / Linux
 
@@ -74,6 +74,16 @@ make -j4
 
 # Run the application
 ./firmware
+```
+
+### WASM build
+
+The project can also be built to Web Assembly using Emscripten:
+
+```sh
+# In a fresh build directory
+emcmake cmake -DFONTDIR=path/to/fonts ../
+emmake make -j4
 ```
 
 ## Notes

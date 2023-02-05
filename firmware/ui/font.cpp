@@ -1,3 +1,4 @@
+#include "embeds.hh"
 #include "filesystem.hh"
 #include "font.hh"
 #include "st7789.h"
@@ -15,27 +16,8 @@
 #include <vector>
 
 // C
-#include "string.h"
-
-
-// Embedded font resources (see add_resource in CMakeLists.txt)
-extern "C" {
-    extern uint8_t _binary_assets_OpenSans_Regular_Stripped_ttf_start[];
-    extern uint8_t _binary_assets_OpenSans_Regular_Stripped_ttf_end[];
-
-    const uint8_t* opensans_ttf = _binary_assets_OpenSans_Regular_Stripped_ttf_start;
-    const uint8_t* opensans_ttf_end = _binary_assets_OpenSans_Regular_Stripped_ttf_end;
-    const size_t opensans_ttf_size = opensans_ttf_end - opensans_ttf;
-}
-
-extern "C" {
-    extern uint8_t _binary_assets_NotoSansMono_Regular_Stripped_otf_start[];
-    extern uint8_t _binary_assets_NotoSansMono_Regular_Stripped_otf_end[];
-
-    const uint8_t* notomono_otf = _binary_assets_NotoSansMono_Regular_Stripped_otf_start;
-    const uint8_t* notomono_otf_end = _binary_assets_NotoSansMono_Regular_Stripped_otf_end;
-    const size_t notomono_otf_size = notomono_otf_end - notomono_otf;
-}
+#include <ctype.h>
+#include <string.h>
 
 
 FontStore::FontStore()
@@ -104,7 +86,7 @@ FT_Face FontStore::loadFaceByCodepoint(uint32_t codepoint)
     return loadFace(id);
 }
 
-FT_Face FontStore::loadFace(uint id)
+FT_Face FontStore::loadFace(uint32_t id)
 {
     if (id == m_active_id) {
         // Already loaded: no action required
@@ -144,7 +126,7 @@ void FontStore::unloadFace()
 
 FT_Error FontStore::registerFont(const char* path)
 {
-    const uint id = m_font_table.size();
+    const uint32_t id = m_font_table.size();
 
     if (id > 255) {
         printf("All font slots are taken! Refusing to register %s", path);
@@ -177,12 +159,14 @@ FT_Error FontStore::registerFont(const char* path)
 
 UIFontPen FontStore::get_pen()
 {
-    return UIFontPen(opensans_ttf, opensans_ttf_size, m_ft_library);
+    using namespace assets;
+    return UIFontPen(opensans_ttf, opensans_ttf_end - opensans_ttf, m_ft_library);
 }
 
 UIFontPen FontStore::get_monospace_pen()
 {
-    return UIFontPen(notomono_otf, notomono_otf_size, m_ft_library);
+    using namespace assets;
+    return UIFontPen(notomono_otf, notomono_otf_end - notomono_otf, m_ft_library);
 }
 
 //
@@ -309,7 +293,7 @@ static void raster_callback_direct(const int y, const int count, const FT_Span* 
 
         st7789_set_cursor(state->screen_x + state->buf_x + span.x, state->screen_y + canvas_y);
 
-        for (uint k = 0; k < span.len; k++) {
+        for (uint32_t k = 0; k < span.len; k++) {
             st7789_write((uint8_t*) &channels, sizeof(channels));
         }
     }
@@ -509,7 +493,7 @@ UIRect UIFontPen::draw(const char* str, const uint16_t canvas_width_px)
 
     // Send rendered line to screen if needed
     if (m_mode == UIFontPen::kMode_CanvasBuffer) {
-        const uint render_x = m_x >= 0 ? m_x : 0;
+        const uint32_t render_x = m_x >= 0 ? m_x : 0;
 
         st7789_set_window(render_x, m_y, render_x + px_width, m_y + px_height);
         st7789_write_dma(state.buffer, px_width * px_height * 3, true);

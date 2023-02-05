@@ -1,17 +1,22 @@
 cmake_minimum_required(VERSION 3.13)
 
-include($ENV{PICO_SDK_PATH}/pico_sdk_init.cmake)
+option(DEBUG "Output a debug build (only for emscripten currently)" OFF)
+
+if(NOT EMSCRIPTEN)
+	include($ENV{PICO_SDK_PATH}/pico_sdk_init.cmake)
+endif()
 
 project(unicode-switch-panel C CXX)
 
-pico_sdk_init()
+if(NOT EMSCRIPTEN)
+	pico_sdk_init()
+	include($ENV{PICO_SDK_PATH}/pico_sdk_init.cmake)
 
-include($ENV{PICO_SDK_PATH}/pico_sdk_init.cmake)
-
-# Enable Tiny USB
-set(FAMILY rp2040)
-set(BOARD pico_sdk)
-set(TINYUSB_FAMILY_PROJECT_NAME_PREFIX "tinyusb_dev_")
+	# Enable Tiny USB
+	set(FAMILY rp2040)
+	set(BOARD pico_sdk)
+	set(TINYUSB_FAMILY_PROJECT_NAME_PREFIX "tinyusb_dev_")
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
@@ -20,7 +25,6 @@ set(CMAKE_C_STANDARD 11)
 # This is required as the install tasks in libpng's CMakeLists otherwise break configuration
 macro(install)
 endmacro(install)
-
 
 #
 # Download libraries and resources using CMake's FetchContent
@@ -71,6 +75,11 @@ set(ZLIB_INCLUDE_DIR ${zlib_SOURCE_DIR} ${zlib_BINARY_DIR} CACHE INTERNAL "")
 set(PNG_SHARED OFF CACHE INTERNAL "")
 set(PNG_TESTS OFF CACHE INTERNAL "")
 
+if(EMSCRIPTEN)
+	set(M_FOUND TRUE CACHE INTERNAL "Emscripten doesn't provide libm: force libpng to skip it")
+	set(M_LIBRARY "" CACHE INTERNAL "")
+endif()
+
 add_subdirectory(${libpng_SOURCE_DIR} ${libpng_BINARY_DIR} EXCLUDE_FROM_ALL)
 
 
@@ -106,22 +115,30 @@ add_subdirectory(${freetype_SOURCE_DIR} ${freetype_BINARY_DIR} EXCLUDE_FROM_ALL)
 # Support embedding resources in the binary (GCC-specific)
 # Based on https://stackoverflow.com/a/56006001/1470907
 #
-
 set(RC_DEPENDS "")
 
 function(add_resource target input)
-    string(MAKE_C_IDENTIFIER ${input} input_identifier)
-    set(output "${CMAKE_CURRENT_BINARY_DIR}/${input_identifier}.o")
-    target_link_libraries(${target} ${output})
+	if(EMSCRIPTEN)
+		# The WASM linker doesn't support converting arbitrary binary files into
+		# objects, so we have to embed them in the virtual filesystem instead.
+		# The "SHELL:" syntax forces CMake to use exactly what's written without
+		# trying to combine options which breaks the build.
+		target_link_options(firmware PRIVATE "SHELL:--embed-file ${CMAKE_CURRENT_SOURCE_DIR}/${input}@${input}")
+	else()
+	    string(MAKE_C_IDENTIFIER ${input} input_identifier)
+	    set(output "${CMAKE_CURRENT_BINARY_DIR}/${input_identifier}.o")
+	    target_link_libraries(${target} ${output})
 
-    add_custom_command(
-        OUTPUT ${output}
-        COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && ${CMAKE_LINKER} --relocatable --format binary --output ${output} ${input}
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${input}
-    )
+	    add_custom_command(
+	        OUTPUT ${output}
+	        COMMAND cd ${CMAKE_CURRENT_SOURCE_DIR} && ${CMAKE_LINKER} --relocatable --format binary --output ${output} ${input}
+	        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${input}
+	    )
 
-    set(RC_DEPENDS ${RC_DEPENDS} ${output} PARENT_SCOPE)
+	    set(RC_DEPENDS ${RC_DEPENDS} ${output} PARENT_SCOPE)
+    endif()
 endfunction()
+
 
 #
 # Configure code-gen for unicode metadata
@@ -142,7 +159,6 @@ ADD_CUSTOM_COMMAND(
     COMMENT "Generate C source for embedding Unicode metadata"
 )
 
-# set_source_files_properties(${UNICODE_METADATA_GENERATED} PROPERTIES GENERATED TRUE)
 
 #
 # Configure firmware build
@@ -152,6 +168,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_subdirectory(fatfs_spi)
 
 set(BASE_SOURCES
+	embeds.cpp
 	font_indexer.cpp
 	ui/codepoint_view.cpp
 	ui/common.cpp
@@ -184,12 +201,11 @@ set(DEVICE_SOURCES
 
 set(FIRMWARE_LIBS
 	freetype
-	pico_stdlib
 	png_static
 	zlibstatic
 )
 
-if(PICO_PLATFORM STREQUAL "host")
+if(PICO_PLATFORM STREQUAL "host" OR EMSCRIPTEN)
 	# Build application for testing on host
 	add_executable(firmware ${BASE_SOURCES} ${HOST_SOURCES})
 
@@ -200,6 +216,25 @@ if(PICO_PLATFORM STREQUAL "host")
 
 	# Build with max debug information
 	add_definitions(-ggdb3 -O0)
+
+	if(EMSCRIPTEN)
+		add_definitions(-s USE_SDL=2)
+		target_link_options(firmware PRIVATE -sASSERTIONS -sPTHREAD_POOL_SIZE=1)
+		set(CMAKE_EXECUTABLE_SUFFIX ".html")
+
+		option(FONTDIR "Directory for packaging fonts with the web build")
+		target_link_options(firmware PRIVATE "SHELL:--preload-file ${FONTDIR}@assets/fonts")
+
+		if(DEBUG)
+			# Provide some level of error information in the browser
+			# This makes a much larger WASM file, so can't be enabled for deployment
+			add_link_options(firmware -gsource-map)
+		endif()
+	else()
+		# We're not actually using this as the application is already abstracted away
+		# from the platform it's running on. This could be removed.
+		list(APPEND FIRMWARE_LIBS pico_stdlib)
+	endif()
 
 else()
 	# Firmware for deployment to pico
@@ -217,7 +252,8 @@ else()
 
 	add_definitions(-DPICO_MALLOC_PANIC=0)
 
-	pico_enable_stdio_uart(firmware ENABLED)
+	# pico_enable_stdio_uart(firmware ENABLED)
+	pico_enable_stdio_usb(firmware ENABLED)
 	pico_add_extra_outputs(firmware) # Create map/bin/hex/uf2 file in addition to ELF
 
 	# Show firmware size stats after build
@@ -245,11 +281,11 @@ target_include_directories(firmware PRIVATE
 
 target_link_libraries(firmware ${FIRMWARE_LIBS})
 
-# (See the Notes section in the readme for how to make a reduced-size font like this)
+# Assets embedded here need to be manually added to embeds.hh and embeds.cc
+# See the Notes section in the readme for how to make a reduced-size fonts
 add_resource(firmware "assets/OpenSans-Regular-Stripped.ttf")
 add_resource(firmware "assets/NotoSansMono-Regular-Stripped.otf")
 add_resource(firmware "assets/unicode-logo.png")
-add_resource(firmware "assets/shift-lock.png")
 
-# Build resource objects
+# Convert registered resources into object files
 add_custom_target(rc ALL DEPENDS ${RC_DEPENDS})

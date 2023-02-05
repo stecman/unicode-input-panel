@@ -1,29 +1,10 @@
 #include "icons.hh"
 #include "st7789.h"
+#include "embeds.hh"
 
 // C
 #include <stdlib.h>
 #include <string.h>
-
-
-// Embedded image assets (see add_resource in CMakeLists.txt)
-extern "C" {
-    extern uint8_t _binary_assets_unicode_logo_png_start[];
-    extern uint8_t _binary_assets_unicode_logo_png_end[];
-
-    const uint8_t* logo_png = _binary_assets_unicode_logo_png_start;
-    const uint8_t* logo_png_end = _binary_assets_unicode_logo_png_end;
-    const size_t logo_png_size = logo_png_end - logo_png;
-}
-
-extern "C" {
-    extern uint8_t _binary_assets_shift_lock_png_start[];
-    extern uint8_t _binary_assets_shift_lock_png_end[];
-
-    const uint8_t* shift_lock_png = _binary_assets_shift_lock_png_start;
-    const uint8_t* shift_lock_png_end = _binary_assets_shift_lock_png_end;
-    const size_t shift_lock_png_size = shift_lock_png_end - shift_lock_png;
-}
 
 
 static void user_read_data(png_structp png_ptr, png_bytep data, png_size_t length)
@@ -269,7 +250,7 @@ void ProgressPngImage::desaturate(uint8_t* pixel)
 
 ProgressPngImage icons_unicode_logo()
 {
-    return ProgressPngImage(logo_png);
+    return ProgressPngImage(assets::unicode_logo_png);
 }
 
 
@@ -308,7 +289,7 @@ static void draw_from_file(const char* path, FIL* fp)
         cursor += bytes_read;
     }
 
-    PngImage image(logo_png);
+    PngImage image(assets::unicode_logo_png);
     image.draw(
         (DISPLAY_WIDTH - image.width) / 2,
         (DISPLAY_HEIGHT - image.height) / 2

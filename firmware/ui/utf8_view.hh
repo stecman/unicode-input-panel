@@ -28,11 +28,16 @@ public:
     std::vector<uint8_t> get_buffer() override;
     void clear() override;
 
+    inline bool uses_utf8() override
+    {
+        return true;
+    }
+
 private:
     void render_large_input_help();
     void render_small_input_help();
     void render_invalid_banner();
-    void render_byte(UIFontPen &pen, uint index, char* str, uint16_t text_width, UIRect &painted);
+    void render_byte(UIFontPen &pen, uint32_t index, char* str, uint16_t text_width, UIRect &painted);
     void render_mode_bar();
 
 private: // View state

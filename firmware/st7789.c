@@ -307,7 +307,7 @@ static uint8_t g_fill_value;
 
 void st7789_fill(uint8_t pixel)
 {
-    const uint num_bytes = st7789_width * st7789_height * 3;
+    const uint32_t num_bytes = st7789_width * st7789_height * 3;
 
     g_fill_value = pixel;
 
@@ -329,7 +329,7 @@ void st7789_fill_window_colour(uint32_t pixel, uint16_t x, uint16_t y, uint16_t 
 
     st7789_set_window(x, y, x + width, y + height);
 
-    for (uint i = 0; i < width * height; i++) {
+    for (uint32_t i = 0; i < width * height; i++) {
         st7789_put(bgr);
     }
 
@@ -338,7 +338,7 @@ void st7789_fill_window_colour(uint32_t pixel, uint16_t x, uint16_t y, uint16_t 
 
 void st7789_fill_colour(uint32_t pixel)
 {
-    uint num_pixels = st7789_width * st7789_height;
+    uint32_t num_pixels = st7789_width * st7789_height;
 
     st7789_set_cursor(0, 0);
 

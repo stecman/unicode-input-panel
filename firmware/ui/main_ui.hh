@@ -32,6 +32,15 @@ public:
     }
 
     /**
+     * Check if this delegate works in UTF8 instead of codepoint value
+     * This is required to work around the Pico SDK disabling RTTI (no dynamic_cast or typeid)
+     */
+    virtual inline bool uses_utf8()
+    {
+        return false;
+    }
+
+    /**
      * Clear screen, making it ready for another view
      */
     virtual void clear() = 0;
@@ -40,7 +49,7 @@ public:
 class MainUI {
 public:
 
-    MainUI();
+    MainUI(const char* fontdir);
 
     /**
      * Update time-based parts of the application and rendering as needed

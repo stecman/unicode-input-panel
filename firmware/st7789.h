@@ -24,12 +24,12 @@ extern "C" {
 
 struct st7789_config {
     spi_inst_t* spi;
-    uint gpio_din;
-    uint gpio_clk;
+    uint32_t gpio_din;
+    uint32_t gpio_clk;
     int gpio_cs;
-    uint gpio_dc;
-    uint gpio_rst;
-    uint gpio_bl;
+    uint32_t gpio_dc;
+    uint32_t gpio_rst;
+    uint32_t gpio_bl;
 };
 
 void st7789_init(const struct st7789_config* config, uint16_t width, uint16_t height);

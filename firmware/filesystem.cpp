@@ -34,7 +34,7 @@ static unsigned long _read_stream(FT_Stream stream,
         return fr;
     }
 
-    uint bytes_read = 0;
+    size_t bytes_read = 0;
 
     fr = f_read(fp, buffer, count, &bytes_read);
     if (fr != FR_OK) {
@@ -82,10 +82,16 @@ int mount()
     return fr;
 }
 
+bool is_dir(const char* path)
+{
+    DIR dir;
+    return f_opendir(&dir, path) == FR_OK;
+}
+
 void walkdir(const char* dirpath, const std::function<void(const char* abspath, uint8_t progress)> &callback)
 {
-    uint total = 0;
-    uint current = 0;
+    uint32_t total = 0;
+    uint32_t current = 0;
 
     FRESULT fr;
     DIR dir;
@@ -93,8 +99,6 @@ void walkdir(const char* dirpath, const std::function<void(const char* abspath, 
 
     fr = f_opendir(&dir, dirpath);
     if (fr != FR_OK) {
-        printf("No directory /%s to open: %s (%d)\n", dirpath, FRESULT_str(fr), fr);
-        // TODO: UI error display
         return;
     }
 

@@ -29,7 +29,7 @@ static UIDelegate* s_views[] = {
 static size_t s_num_views = sizeof(s_views) / sizeof(UIDelegate*);
 
 
-MainUI::MainUI()
+MainUI::MainUI(const char* fontdir)
     : m_view_index(0),
       m_view(s_views[0]),
       m_shift_lock(false)
@@ -60,9 +60,15 @@ MainUI::MainUI()
         abort();
     }
 
+    if (!fs::is_dir(fontdir)) {
+        printf("Font directory '%s' not found!\n", fontdir);
+        // TODO: Display error on the screen
+        return;
+    }
+
     printf("\n\nLoading fonts...\n");
 
-    fs::walkdir("fonts", [&](const char* fontpath, uint8_t progress) {
+    fs::walkdir(fontdir, [&](const char* fontpath, uint8_t progress) {
         s_fontstore.registerFont(fontpath);
         progress_img.update_progress(progress);
     });
@@ -148,8 +154,9 @@ void MainUI::goto_next_mode(uint8_t input_switches)
 
     // Handle transition to UTF8View
     {
-        UIDelegate* utf8view = dynamic_cast<UTF8View*>(m_view);
-        if (utf8view != nullptr) {
+        if (m_view->uses_utf8()) {
+            UIDelegate* utf8view = static_cast<UTF8View*>(m_view);
+
             const uint32_t codepoint = last_view->get_codepoints()[0];
             const char* encoded = codepoint_to_utf8(codepoint);
 
@@ -181,8 +188,9 @@ void MainUI::goto_next_mode(uint8_t input_switches)
 
     // Handle transition out of UTF8View
     {
-        UIDelegate* utf8view = dynamic_cast<UTF8View*>(last_view);
-        if (utf8view != nullptr) {
+        if (last_view->uses_utf8()) {
+            UIDelegate* utf8view = static_cast<UTF8View*>(last_view);
+
             const auto codepoints = last_view->get_codepoints();
 
             if (codepoints.size() > 0) {
