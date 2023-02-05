@@ -228,7 +228,7 @@ if(PICO_PLATFORM STREQUAL "host" OR EMSCRIPTEN)
 		if(DEBUG)
 			# Provide some level of error information in the browser
 			# This makes a much larger WASM file, so can't be enabled for deployment
-			add_link_options(firmware -gsource-map)
+			target_link_options(firmware PRIVATE -gsource-map)
 		endif()
 	else()
 		# We're not actually using this as the application is already abstracted away
