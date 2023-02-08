@@ -6,6 +6,7 @@
 // FreeType
 #include <freetype/ftoutln.h>
 #include <freetype/internal/ftobjs.h>
+#include <freetype/internal/ftstream.h>
 #include <freetype/tttables.h>
 #include <freetype/tttags.h>
 
@@ -43,35 +44,6 @@ FontStore::~FontStore()
 void noop_destroy_func(void *user_data)
 {
     // Do nothing
-}
-
-bool find_substitutions(FT_Face m_face)
-{
-    FT_ULong length = 0;
-    FT_Error error = FT_Load_Sfnt_Table( m_face, TTAG_GSUB, 0, NULL, &length );
-    if ( error ) {
-        printf("No such table...\n");
-        return false;
-    }
-
-    printf("  Want %lu bytes...\n", length);
-    uint8_t* buffer = (uint8_t*) malloc(length);
-    if ( buffer == NULL ) {
-        printf("  Failed to malloc\n");
-        return false;
-    }
-
-    error = FT_Load_Sfnt_Table( m_face, TTAG_GSUB, 0, buffer, &length );
-    if ( error ) {
-        printf("  Failed to load table\n");
-        return false;
-    }
-
-    printf("  Loaded GSUB table!\n");
-
-    free(buffer);
-
-    return true;
 }
 
 FT_Face FontStore::loadFaceByCodepoint(uint32_t codepoint)
@@ -155,6 +127,95 @@ FT_Error FontStore::registerFont(const char* path)
     }
 
     return FT_Err_Ok;
+}
+
+void hexdump(void *ptr, int buflen) {
+    unsigned char *buf = (unsigned char*)ptr;
+    int i, j;
+
+    for (i=0; i<buflen; i+=16) {
+        printf("%06x: ", i);
+        for (j=0; j<16; j++) { 
+            if (i+j < buflen) {
+                printf("%02x ", buf[i+j]);
+            } else {
+                printf("   ");
+            }
+        }
+        printf(" ");
+        for (j=0; j<16; j++) {
+            if (i+j < buflen) {
+                printf("%c", isprint(buf[i+j]) ? buf[i+j] : '.');
+            }
+        }
+
+        printf("\n");
+    }
+}
+
+bool find_substitutions(FT_Face m_face)
+{
+    // Request the table length
+    FT_ULong io_length = 0;
+    FT_Error error = FT_Load_Sfnt_Table( m_face, TTAG_GSUB, 0, NULL, &io_length );
+    if ( error ) {
+        printf("No such table...\n");
+        return false;
+    }
+
+    printf("  Want %lu bytes...\n", io_length);
+    uint8_t* buffer = (uint8_t*) malloc(io_length);
+    if ( buffer == NULL ) {
+        printf("  Failed to malloc\n");
+        return false;
+    }
+
+    error = FT_Load_Sfnt_Table( m_face, TTAG_GSUB, 0, buffer, &io_length );
+    if ( error ) {
+        printf("  Failed to load table\n");
+        free(buffer);
+        return false;
+    }
+
+    hexdump(buffer, 128);
+
+    // Check this is a compatible GSUB table version
+    uint16_t lookup_list_offset;
+    {
+        uint8_t* ptr = buffer;
+        const uint16_t major_version = FT_NEXT_USHORT(ptr);
+        const uint16_t minor_version = FT_NEXT_USHORT(ptr);
+
+        lookup_list_offset = FT_NEXT_USHORT(ptr);
+
+        if (major_version != 1) {
+            printf("Unknown GSUB table version: %u.%u\n", major_version, minor_version);
+            free(buffer);
+            return false;
+        }
+    }
+
+    // Iterate over lookup list entries
+    {
+        uint8_t* lookup_list_ptr = buffer + lookup_list_offset;
+
+        const uint16_t lookup_count = FT_NEXT_USHORT(lookup_list_ptr);
+        for (uint16_t i = 0; i < lookup_count; i++) {
+            const uint16_t lookup_table_offset = FT_NEXT_USHORT(lookup_list_ptr);
+
+            uint8_t* lookup_ptr = buffer + lookup_list_offset + lookup_table_offset;
+
+            const uint16_t lookup_type = FT_NEXT_USHORT(lookup_ptr);
+            const uint16_t lookup_flag = FT_NEXT_USHORT(lookup_ptr);
+            const uint16_t lookup_subtable_count = FT_NEXT_USHORT(lookup_ptr);
+
+            printf("  Table %u -> %u, %u, %u\n", i, lookup_type, lookup_flag, lookup_subtable_count);
+        }
+    }
+
+    free(buffer);
+
+    return true;
 }
 
 UIFontPen FontStore::get_pen()
