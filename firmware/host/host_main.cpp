@@ -19,6 +19,7 @@ static SDL_TimerID modeclear_pending = 0;
 static SDL_TimerID shift_pending = 0;
 
 static MainUI* app = nullptr;
+static bool is_app_valid = false;
 static bool needs_render = true;
 static SDL_Rect vscreen_dest;
 
@@ -59,10 +60,10 @@ void load_binary_embeds(void)
 }
 #endif
 
-void init_app()
+void app_load()
 {
     printf("Starting MainUI...\n");
-    app = new MainUI(s_font_path);
+    is_app_valid = app->load(s_font_path);
 }
 
 void handle_keydown(const SDL_KeyboardEvent &key)
@@ -169,7 +170,7 @@ void handle_keydown(const SDL_KeyboardEvent &key)
 
                 output += encoding;
             }
-            
+
             printf("Sent: %s\n", output.c_str());
             app->flush_buffer();
             break;
@@ -272,10 +273,10 @@ void main_loop()
         SDL_RenderPresent(renderer);
     }
 
-    if (app != nullptr) {
-        // Poll for events (loops until there are no more events to process)
-        SDL_Event event;
-        while( SDL_WaitEventTimeout( &event, 1) ){
+    // Poll for events (loops until there are no more events to process)
+    SDL_Event event;
+    while( SDL_WaitEventTimeout( &event, 1) ){
+        if (is_app_valid) {
             handle_event(event);
         }
     }
@@ -342,7 +343,7 @@ int main(int argc, const char* argv[])
 
     // Make the application do any periodic updates
     SDL_AddTimer(1000/30 /* milliseconds */, [](Uint32 interval, void *param) -> Uint32 {
-        if (app != nullptr) app->tick();
+        if (is_app_valid) app->tick();
         return interval;
     }, nullptr);
 
@@ -352,21 +353,23 @@ int main(int argc, const char* argv[])
     vscreen_dest.w = DISPLAY_WIDTH * kDisplayScaling;
     vscreen_dest.h = DISPLAY_HEIGHT * kDisplayScaling;
 
-#ifdef EMSCRIPTEN
-    // Run the application
-    // FIXME: This won't show the loading screen due to it rendering during construction
-    app = new MainUI(s_font_path);
+    // Create the application
+    app = new MainUI();
 
+#ifdef EMSCRIPTEN
+    // TODO: Write a version of load that doesn't block the UI, or is web-specific
+    app_load();
 #else
-    // Start application on a background thread
-    // Needed as initialisation is a blocking process that also updates the display
-    std::thread app_thread(init_app);
+    // Perform the initial blocking load in a thread
+    // Needed as this also updates the display, which won't happen if the main thread is occupied
+    std::thread load_thread(app_load);
+
     while (!app_terminated) {
         main_loop();
     }
 
     // Wait for any background task that's still running
-    app_thread.join();
+    load_thread.join();
 
     SDL_DestroyWindow(screen);
     SDL_Quit();

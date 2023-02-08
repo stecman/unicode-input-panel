@@ -154,9 +154,14 @@ public:
         return m_ft_library;
     }
 
-    inline const std::vector<CodepointRange>& codepoint_ranges()
+    inline const std::vector<CodepointRange>& codepointRanges()
     {
         return m_indexer.ranges();
+    }
+
+    inline const uint32_t countCodepoints()
+    {
+        return m_indexer.countCodepoints();
     }
 
     inline void optimise()

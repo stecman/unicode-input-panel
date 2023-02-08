@@ -305,7 +305,8 @@ int main()
     st7789_vertical_scroll(300);
 
     // Start the application
-    MainUI app("fonts");
+    MainUI app;
+    app.load("fonts");
 
     // Turn on data input LEDs (inverted as this drives a P-channel mosfet)
     {
@@ -360,7 +361,7 @@ int main()
             } else if (shift_switch.was_short_pressed()) {
                 app.shift();
             }
-            
+
             if (modeclear_switch.was_long_pressed()) {
                 app.reset();
             } else if (modeclear_switch.was_short_pressed()) {

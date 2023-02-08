@@ -28,11 +28,25 @@ static UIDelegate* s_views[] = {
 };
 static size_t s_num_views = sizeof(s_views) / sizeof(UIDelegate*);
 
+static void draw_startup_error(const char* msg)
+{
+    UIFontPen pen = s_fontstore.get_pen();
+    pen.set_colour(kColour_Error);
+    pen.set_render_mode(UIFontPen::kMode_DirectToScreen);
+    pen.set_size(16);
+    pen.set_embolden(32);
 
-MainUI::MainUI(const char* fontdir)
+    const uint16_t text_width = pen.compute_px_width(msg);
+    pen.move_to(std::max(0, (DISPLAY_WIDTH - text_width)/2), DISPLAY_HEIGHT - 50);
+    pen.draw(msg);
+}
+
+MainUI::MainUI()
     : m_view_index(0),
       m_view(s_views[0]),
-      m_shift_lock(false)
+      m_shift_lock(false) {}
+
+bool MainUI::load(const char* fontdir)
 {
     UIRect erase_rect;
 
@@ -57,13 +71,14 @@ MainUI::MainUI(const char* fontdir)
     if (fs::mount()) {
         // TODO: Show message on screen
         printf("Failed to mount SD Card\n");
-        abort();
+        draw_startup_error("SD Card mount failed!");
+        return false;
     }
 
     if (!fs::is_dir(fontdir)) {
         printf("Font directory '%s' not found!\n", fontdir);
-        // TODO: Display error on the screen
-        return;
+        draw_startup_error("Font directory not found!");
+        return false;
     }
 
     printf("\n\nLoading fonts...\n");
@@ -85,7 +100,10 @@ MainUI::MainUI(const char* fontdir)
 
     // Clear logo from screen to make room for the application
     erase_rect.blank_and_invalidate();
+
     st7789_deselect();
+
+    return true;
 }
 
 void MainUI::tick()

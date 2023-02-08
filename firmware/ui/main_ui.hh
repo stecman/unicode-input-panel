@@ -49,7 +49,13 @@ public:
 class MainUI {
 public:
 
-    MainUI(const char* fontdir);
+    MainUI();
+
+    /**
+     * Perform a blocking load of available fonts
+     * It is the caller's responsibility to track instance readiness if needed
+     */
+    bool load(const char* fontdir);
 
     /**
      * Update time-based parts of the application and rendering as needed
@@ -104,7 +110,10 @@ public:
     const std::vector<uint32_t> get_codepoints();
 
 private:
+    // The currently active view mode
     UIDelegate* m_view;
     size_t m_view_index;
+
+    // Global shift-lock state
     bool m_shift_lock;
 };
