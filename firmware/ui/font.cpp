@@ -2,6 +2,7 @@
 #include "filesystem.hh"
 #include "font.hh"
 #include "st7789.h"
+#include "svg.hh"
 
 // FreeType
 #include <freetype/ftoutln.h>
@@ -30,6 +31,8 @@ FontStore::FontStore()
         printf("FATAL (%s): FT_Init_FreeType error: 0x%02X\n", __func__, error);
         abort();
     }
+
+    FT_Property_Set( m_ft_library, "ot-svg", "svg-hooks", &lunasvg_hooks );
 }
 
 FontStore::~FontStore()

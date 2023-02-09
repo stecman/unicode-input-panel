@@ -38,6 +38,7 @@ set(FETCHCONTENT_QUIET FALSE)
 # Source dependencies
 FetchContent_Declare(freetype URL https://download.savannah.gnu.org/releases/freetype/freetype-2.12.1.tar.gz)
 FetchContent_Declare(libpng URL https://cytranet.dl.sourceforge.net/project/libpng/libpng16/1.6.37/libpng-1.6.37.tar.xz)
+FetchContent_Declare(lunasvg URL https://github.com/sammycage/lunasvg/archive/refs/tags/v2.3.5.tar.gz)
 FetchContent_Declare(unicode_blocks URL https://unicode.org/Public/UNIDATA/Blocks.txt DOWNLOAD_NO_EXTRACT TRUE)
 FetchContent_Declare(unicode_codepoints URL https://unicode.org/Public/UNIDATA/UnicodeData.txt DOWNLOAD_NO_EXTRACT TRUE)
 FetchContent_Declare(zlib URL https://versaweb.dl.sourceforge.net/project/libpng/zlib/1.2.11/zlib-1.2.11.tar.xz)
@@ -110,6 +111,14 @@ set(PNG_INCLUDE_DIRS ${libpng_SOURCE_DIR} ${libpng_BINARY_DIR} CACHE INTERNAL ""
 
 add_subdirectory(${freetype_SOURCE_DIR} ${freetype_BINARY_DIR} EXCLUDE_FROM_ALL)
 
+# lunasvg
+FetchContent_GetProperties(lunasvg)
+if(NOT lunasvg_POPULATED)
+	FetchContent_Populate(lunasvg)
+endif()
+
+add_subdirectory(${lunasvg_SOURCE_DIR} ${lunasvg_BINARY_DIR} EXCLUDE_FROM_ALL)
+
 
 #
 # Support embedding resources in the binary (GCC-specific)
@@ -170,6 +179,7 @@ add_subdirectory(fatfs_spi)
 set(BASE_SOURCES
 	embeds.cpp
 	font_indexer.cpp
+	svg.cpp
 	ui/codepoint_view.cpp
 	ui/common.cpp
 	ui/font.cpp
@@ -201,6 +211,7 @@ set(DEVICE_SOURCES
 
 set(FIRMWARE_LIBS
 	freetype
+	lunasvg
 	png_static
 	zlibstatic
 )
@@ -269,7 +280,7 @@ endif()
 # Explicitly select targets to build from libpng and zlib (since we're EXCLUDE_FROM_ALL)
 add_dependencies(png_static zlibstatic)
 add_dependencies(freetype png_static zlibstatic)
-add_dependencies(firmware png_static zlibstatic freetype)
+add_dependencies(firmware png_static zlibstatic freetype lunasvg)
 
 target_include_directories(firmware PRIVATE
     ${libpng_SOURCE_DIR}

@@ -142,7 +142,7 @@ void GlyphDisplay::draw(uint32_t codepoint, bool is_valid)
             pen.set_render_mode(UIFontPen::kMode_DirectToScreen);
 
             char _hex_string[12];
-                                                                                        char* hex_string = (char*) &_hex_string;
+            char* hex_string = (char*) &_hex_string;
             sprintf(hex_string, "0x%X", codepoint);
 
             // Adjust font size to fit on screen
@@ -198,11 +198,15 @@ bool GlyphDisplay::drawGlyph(uint32_t codepoint)
         }
 
         FT_Select_Size(face, best_index);
-        error = FT_Load_Char(face, codepoint, FT_LOAD_DEFAULT | FT_LOAD_COLOR);
+        error = FT_Load_Char(face, codepoint, FT_LOAD_COLOR);
 
         if (error) {
             return false;
         }
+
+    } else if (FT_HAS_SVG(face) && FT_Load_Char(face, codepoint, FT_LOAD_COLOR | FT_LOAD_NO_BITMAP) == FT_Err_Ok) {
+        // SVG loaded into slot
+        // Nothing more to do: fall through to render
 
     } else {
         // Load an outline glyph so that it will fit on screen
@@ -220,7 +224,7 @@ bool GlyphDisplay::drawGlyph(uint32_t codepoint)
             // Load without auto-hinting, since hinting data isn't used with FT_Outline_Render
             // and auto-hinting can be memory intensive on complex glyphs. FT_LOAD_NO_HINTING
             // appears to make the font metrics inaccurate so I'm not using that here.
-            const uint32_t flags = FT_LOAD_DEFAULT | FT_LOAD_COMPUTE_METRICS | FT_LOAD_NO_AUTOHINT;
+            const uint32_t flags = FT_LOAD_COMPUTE_METRICS | FT_LOAD_NO_AUTOHINT;
             error = FT_Load_Char(face, codepoint, flags);
 
             // Get dimensions, rouded up
@@ -290,7 +294,7 @@ bool GlyphDisplay::drawGlyph(uint32_t codepoint)
 
     } else {
 
-        // Use the built-in PNG rendering in FreeType
+        // Render PNG or SVG glyph
         //
         // TODO: This isn't ideal as it renders the entire image to a memory buffer.
         //       For Noto Emoji with 136 x 128 bitmaps, this uses about 70KB of memory.
