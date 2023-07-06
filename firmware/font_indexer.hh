@@ -88,5 +88,9 @@ private:
 
     void orderRanges();
 
+    // Cache of actual codepoint code to use after compressRanges is called
+    // Zero indicates codepoints must to be counted (no cached value)
+    uint32_t m_cached_count = 0;
+
     std::vector<CodepointRange> m_ranges;
 };

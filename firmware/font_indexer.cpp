@@ -87,6 +87,10 @@ uint16_t FontIndexer::find(const uint32_t codepoint)
 
 uint32_t FontIndexer::countCodepoints()
 {
+    if (m_cached_count != 0) {
+        return m_cached_count;
+    }
+
     uint32_t sum = 0;
 
     for (const CodepointRange &range : m_ranges) {
@@ -198,6 +202,9 @@ void FontIndexer::mergeRanges(std::vector<CodepointRange> &incoming_ranges)
 
 void FontIndexer::compressRanges()
 {
+    // Cache actual codepoint count before the information is destroyed
+    m_cached_count = countCodepoints();
+
     CodepointRange* target = nullptr;
 
     for (CodepointRange &range : m_ranges) {
