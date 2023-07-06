@@ -60,7 +60,15 @@ public:
 
     /**
      * Compress ranges to save memory
-     * This gives an imperfect map, but at significantly lower memory consumption
+     * 
+     * Merges unclaimed ranges (gaps) into neighbouring ranges, allowing smaller
+     * ranges of each font to be collapsed together. This significantly reduces
+     * memory consumption, with the trade off that false-positve matches will be
+     * found and that font must be loaded to know if a glyph actually exists.
+     * 
+     * All calls to indexFace() must be made before calling compressRanges(). Once
+     * compressed, new fonts will be unable to merge as all codepoints will appear
+     * to be claimed by other fonts.
      */
     void compressRanges();
 

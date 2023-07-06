@@ -90,7 +90,7 @@ bool MainUI::load(const char* fontdir)
 
     // Join adjacent ranges that use the same font
     //
-    // This massively reduces the memory footprint of the index (10-fold), at the cost of not
+    // This significantly reduces the memory footprint of the index, at the cost of not
     // being able to identify missing codepoints with the index. This is fine as we can ask
     // the associated font before rendering if it actually has a glyph.
     s_fontstore.optimise();
