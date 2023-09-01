@@ -2,13 +2,20 @@ cmake_minimum_required(VERSION 3.13)
 
 option(DEBUG "Output a debug build (only for emscripten currently)" OFF)
 
-if(NOT EMSCRIPTEN)
+if(EMSCRIPTEN OR PICO_PLATFORM STREQUAL "host")
+    # Not targeting the Pico: build in host mode
+    set(BUILD_FOR_PICO OFF)
+else()
+    set(BUILD_FOR_PICO ON)
+endif()
+
+if(BUILD_FOR_PICO)
 	include($ENV{PICO_SDK_PATH}/pico_sdk_init.cmake)
 endif()
 
 project(unicode-switch-panel C CXX)
 
-if(NOT EMSCRIPTEN)
+if(BUILD_FOR_PICO)
 	pico_sdk_init()
 	include($ENV{PICO_SDK_PATH}/pico_sdk_init.cmake)
 
@@ -205,7 +212,7 @@ set(FIRMWARE_LIBS
 	zlibstatic
 )
 
-if(PICO_PLATFORM STREQUAL "host" OR EMSCRIPTEN)
+if(NOT BUILD_FOR_PICO)
 	# Build application for testing on host
 	add_executable(firmware ${BASE_SOURCES} ${HOST_SOURCES})
 
@@ -230,10 +237,6 @@ if(PICO_PLATFORM STREQUAL "host" OR EMSCRIPTEN)
 			# This makes a much larger WASM file, so can't be enabled for deployment
 			target_link_options(firmware PRIVATE -gsource-map)
 		endif()
-	else()
-		# We're not actually using this as the application is already abstracted away
-		# from the platform it's running on. This could be removed.
-		list(APPEND FIRMWARE_LIBS pico_stdlib)
 	endif()
 
 else()

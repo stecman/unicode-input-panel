@@ -31,10 +31,32 @@ end of this readme.
 ## Developing
 
 You'll need an internet connection for the initial configuration as CMake will
-automatically download several dependencies that need to be built from source
-(FreeType, libpng, zlib), and some of [Unicode's data tables](https://unicode.org/Public/UNIDATA/).
+automatically download several dependencies to build from source (FreeType,
+libpng, zlib), and some of [Unicode's data tables](https://unicode.org/Public/UNIDATA/).
 
-### Command-line / Linux
+### Building for desktop
+
+For fast development and debugging, builds can target the host computer. This
+renders a virtual screen using SDL2, and doesn't use the Pico SDK at all.
+
+```sh
+# Install SDL2 from your package manager
+apt-get install libsdl2-dev
+
+# Configure the build
+cd firmware
+mkdir build
+cd build
+cmake ../ -DPICO_PLATFORM=host
+
+# Compile
+make -j4
+
+# Run the application
+./firmware path/to/fonts/
+```
+
+### Building for the Pico (command line, Linux)
 
 First:
 
@@ -57,24 +79,7 @@ make -j4
 
 This will give you a file `firmware.uf2` in the build directory, which can be
 copied to the Pico (when started with the BOOTSEL button held).
-
-### Using the Raspberry Pi Foundation's IDE
-
-TODO: check this actually works
  
-### Host builds
-
-For fast development and debugging, builds can target the host computer. This
-renders a virtual screen using SDL2.
-
-```sh
-# In a fresh build directory
-cmake ../ -DPICO_PLATFORM=host
-make -j4
-
-# Run the application
-./firmware
-```
 
 ### WASM build
 
