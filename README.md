@@ -1,5 +1,7 @@
 # UNICODE Input Terminal
 
+![Front panel illustration](drawings/front-panel-design.svg)
+
 Classic binary data entry meets modern Unicode: 144K characters at your
 fingertips. A physical user interface to enter any UTF-8 sequence over USB.
 
