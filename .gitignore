@@ -1,5 +1,5 @@
 build/
 data/
-/rust-bake-codepoints/target/
 .cache/
 *.pyc
+/test/stream
