@@ -1,5 +1,0 @@
-# Libraries required for scripts folder
-uharfbuzz
-fontTools
-Pillow
-freetype-py
