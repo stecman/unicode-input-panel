@@ -50,27 +50,40 @@ In all modes:
 ### Codepoint Mode (HEX, DEC)
 
  - Entry of a codepoint value via DATA INPUT and SHIFT
+
  - Codepoint value is displayed in hexadecimal (HEX) or decimal (DEC), centred
    at the bottom of the screen.
+
  - The corresponding glyph is rendered if the codepoint is found in any of the
    available fonts.
+
  - Unicode block and codepoint names are displayed at the top of the screen
    when codepoint is valid.
 
 ### UTF-8 Mode (UTF-8)
 
- - Entry of a [1-4 byte UTF-8 sequence](https://en.wikipedia.org/wiki/UTF-8#Encoding) via DATA INPUT and SHIFT
- - If an invalid encoding is entered, binary literals show problematic bits in red.
+ - Entry of a [1-4 byte UTF-8 sequence](https://en.wikipedia.org/wiki/UTF-8#Encoding)
+   via DATA INPUT and SHIFT
+
+ - If an invalid encoding is entered, binary literals will be shown with
+   problematic bits highlighted in red.
+
  - The SHIFT operation is automatically limited to the encoded sequence length.
- - Glyph is rendered when a valid UTF-8 sequences is entered, if found in the available fonts.
+
+ - A glyph will be rendered when a valid UTF-8 sequence is entered, if found in
+   the available fonts.
+
+ - Unicode block and codepoint names are displayed at the top of the screen
+   when codepoint is valid.
 
 Changing to this mode will show the UTF-8 encoding of the codepoint selected in
-the previous mode. The low byte may not match the DATA INPUT switches to
-achieve this. When the DATA INPUT changes, the low byte will be updated.
+the previous mode. The low byte may not match the DATA INPUT switches at this
+time. When the DATA INPUT changes, the low byte will be updated.
 
 ### Numeric / Programmer Mode (LITERAL)
 
  - Always shows a large hexadecimal representation of the input buffer
+
  - Pressing SEND writes the literal hex value like "0xF1"
 
 
