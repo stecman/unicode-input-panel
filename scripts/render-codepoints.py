@@ -207,9 +207,8 @@ If a codepoint is in multiple fonts, the first font with that codepoint is used.
 
     os.makedirs(args.outdir, exist_ok=True)
     fontfiles = []
-    #fontfiles += glob.glob(os.path.join(args.fonts, '*.otf'))
-    #fontfiles += glob.glob(os.path.join(args.fonts, '*.ttf'))
-    fontfiles += glob.glob(os.path.join(args.fonts, 'NotoSans-Regular.otf'))
+    fontfiles += glob.glob(os.path.join(args.fonts, '*.otf'))
+    fontfiles += glob.glob(os.path.join(args.fonts, '*.ttf'))
 
     table = build_font_map(fontfiles)
 
