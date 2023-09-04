@@ -18,7 +18,7 @@ Parts and wiring can be found in the schematic. The gist is:
 
  - Raspberry Pi Pico
  - A bunch of switches (8x latching toggle, 1x 3-position momentary, 1x 2-position momentary)
- - ST7789 based display (ideally 240x300, but other resolutions could be made to work)
+ - ST7789 based display (ideally 280x240, but other resolutions could be made to work)
  - SD card receptacle of some form that can be connected via SPI
 
 A pre-built `.uf2` firmware image can be downloaded from the [releases page]()
