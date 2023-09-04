@@ -9,7 +9,7 @@ A display shows a preview of the selected glyph(s), along with metadata about
 the codepoint - all rendered entirely on-device. About 30MB of font files are
 required to render glyphs, which are read from an SD card.
 
-See the [Hackaday project page]() for more detail about the build.
+See the [Hackaday project page](https://hackaday.io/project/192644-unicode-binary-input-terminal) for more detail about the build.
 
 
 ## Getting started
