@@ -6,8 +6,8 @@ Classic binary data entry meets modern Unicode: 144K characters at your
 fingertips. A physical user interface to enter any UTF-8 sequence over USB.
 
 A display shows a preview of the selected glyph(s), along with metadata about
-the codepoint - all rendered entirely on-device. About 30MB of font files are
-required to render glyphs, which are read from an SD card.
+the codepoint - all rendered entirely on-device. Tens of megabytes of font
+files are required to render glyphs, which are read from an SD card.
 
 See the [Hackaday project page](https://hackaday.io/project/192644-unicode-binary-input-terminal) for more detail about the build.
 
