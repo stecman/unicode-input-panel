@@ -97,9 +97,9 @@ emmake make -j4
 
 ### Preparing fonts
 
-If you want to use fonts other than those in the [prepared bundle]() on the
-device, there are some considerations: FreeType is fairly sparing with its
-memory use, but it still requires loading some sections of a font entirely
+If you want to use fonts other than those in the [prepared bundle](https://github.com/stecman/unicode-input-panel/releases/tag/1.0)
+on the device, there are some considerations: FreeType is fairly sparing with
+its memory use, but it still requires loading some sections of a font entirely
 into memory during initial load/open (`FT_Open_Face`).
 
 - From observation, OTF fonts seem to require more memory to open than TTF fonts.
