@@ -136,7 +136,7 @@ the serial port).
 This project includes copies of:
 
  - [FatFS SD SPI for Raspberry Pi Pico](https://github.com/carlk3/no-OS-FatFS-SD-SPI-RPi-Pico),
-   which contains [FatFS](http://elm-chan.org/fsw/ff/00index_e.html)). This is included as
+   which contains [FatFS](http://elm-chan.org/fsw/ff/00index_e.html). This is included as
    source in the repository because it need slight tweaks to build correctly.
 
  - A stripped down version of the [OpenSans](https://github.com/googlefonts/opensans)
