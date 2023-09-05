@@ -142,7 +142,7 @@ void GlyphDisplay::draw(uint32_t codepoint, bool is_valid)
             pen.set_render_mode(UIFontPen::kMode_DirectToScreen);
 
             char _hex_string[12];
-                                                                                        char* hex_string = (char*) &_hex_string;
+            char* hex_string = (char*) &_hex_string;
             sprintf(hex_string, "0x%X", codepoint);
 
             // Adjust font size to fit on screen
