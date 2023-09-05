@@ -1,3 +1,0 @@
-[submodule "firmware/freetype"]
-	path = firmware/freetype
-	url = https://github.com/freetype/freetype.git
