@@ -210,7 +210,7 @@ private:
     {
         // Start sending keys if it's not running yet
         if (m_send_timer.alarm_id == 0) {
-            add_repeating_timer_ms(5, key_send_callback, this, &m_send_timer);
+            add_repeating_timer_ms(1, key_send_callback, this, &m_send_timer);
             update();
         }
     }
@@ -273,6 +273,10 @@ int main()
     usb_init();
     stdio_usb_init();
 
+    // Run USB polling from an interrupt as the main loop slows down when rendering
+    static struct repeating_timer usb_timer;
+    add_repeating_timer_ms(5, background_usb_poll, NULL, &usb_timer);
+
     printf("\n\nDevice has reset\n");
 
 	// GPIOs 0-11 as inputs with pull-up
@@ -332,16 +336,8 @@ int main()
     // Scroll so 0,0 in memory is actually rendered in the top-left corner
     st7789_vertical_scroll(300);
 
-    // Start the application
-    // Temporarily polls usb from an interrupt as app.load() blocks for a while
-    {
-        struct repeating_timer timer;
-        add_repeating_timer_ms(5, background_usb_poll, NULL, &timer);
-
-        app.load("fonts");
-
-        cancel_repeating_timer(&timer);
-    }
+    // Start the application (blocking until loaded)
+    app.load("fonts");
 
     // Turn on data input LEDs (inverted as this drives a P-channel mosfet)
     {
@@ -366,8 +362,6 @@ int main()
     UserInput send_switch(PIN_SWITCH_SEND);
 
     while (true) {
-        usb_poll();
-
         if (needs_render) {
             needs_render = false;
 
