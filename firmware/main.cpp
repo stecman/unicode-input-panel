@@ -119,43 +119,48 @@ private:
     bool m_handled = true;
 };
 
+// Use keycode conversion table provided by the Pico SDK
+static constexpr size_t kAsciiToKeycodeLength = 128;
+static constexpr uint8_t kAsciiToKeycode[kAsciiToKeycodeLength][2] = { HID_ASCII_TO_KEYCODE };
 
 class CodepointSender
 {
 public:
     void send(uint32_t codepoint)
     {
+        constexpr uint8_t indexShift = 0;
+        constexpr uint8_t indexKeycode = 1;
+
         // TODO: handle send send buffer full
 
+        // Send a single key if the codepoint is valid ASCII
+        // Note this will be incompatible with non-US keyboard layouts
+        if (codepoint < kAsciiToKeycodeLength) {
+            uint8_t keycode = kAsciiToKeycode[codepoint][indexKeycode];
+            if (keycode != 0) {
+                uint8_t modifiers = kAsciiToKeycode[codepoint][indexShift] ? KEYBOARD_MODIFIER_LEFTSHIFT : 0;
+                m_key_queue[m_queue_size++] = KeyPress(keycode, modifiers);
+                return;
+            }
+        }
+
+        // Convert to a sequence of key presses for a specific operating system
+        // TODO: Currently this only supports Linux Ctrl+Shift+U sequence entry
         char _buf[12];
         char* str = (char*) &_buf;
         sprintf(str, "%X", codepoint);
 
+        // Start unicode hex entry (Linux desktop)
+        m_key_queue[m_queue_size++] = KeyPress(HID_KEY_U, KEYBOARD_MODIFIER_LEFTCTRL | KEYBOARD_MODIFIER_LEFTSHIFT);
+
         while (*str != '\0') {
-            uint8_t value;
-
-            switch (*str++)
-            {
-                case '1': value = HID_KEY_1; break;
-                case '2': value = HID_KEY_2; break;
-                case '3': value = HID_KEY_3; break;
-                case '4': value = HID_KEY_4; break;
-                case '5': value = HID_KEY_5; break;
-                case '6': value = HID_KEY_6; break;
-                case '7': value = HID_KEY_7; break;
-                case '8': value = HID_KEY_8; break;
-                case '9': value = HID_KEY_9; break;
-                case '0': value = HID_KEY_0; break;
-                case 'A': value = HID_KEY_A; break;
-                case 'B': value = HID_KEY_B; break;
-                case 'C': value = HID_KEY_C; break;
-                case 'D': value = HID_KEY_D; break;
-                case 'E': value = HID_KEY_E; break;
-                case 'F': value = HID_KEY_F; break;
-            }
-
-            m_key_queue[m_queue_size++] = value;
+            uint8_t keycode = kAsciiToKeycode[*str][indexKeycode];
+            m_key_queue[m_queue_size++] = KeyPress(keycode);
+            str++;
         }
+
+        // Finish sequence with enter
+        m_key_queue[m_queue_size++] = KeyPress(HID_KEY_ENTER);
     }
 
     // Returns true when sending has completed
@@ -182,39 +187,23 @@ public:
             return false;
         }
 
-        switch (m_state) {
-            case CodepointSender::kSendLeader: {
-                send_key(HID_KEY_U, KEYBOARD_MODIFIER_LEFTCTRL | KEYBOARD_MODIFIER_LEFTSHIFT);
-                m_state = CodepointSender::kSendKeys;
-                break;
-            }
+        // Send next key press, or reset
+        if (m_index < m_queue_size) {
+            auto& press = m_key_queue[m_index++];
+            send_key(press.keycode, press.modifiers);
 
-            case CodepointSender::kSendKeys: {
-                if (m_index < m_queue_size) {
-                    // Send next hex character
-                    send_key(m_key_queue[m_index++]);
-                } else {
-                    // No more hex characters to send: press enter
-                    send_key(HID_KEY_ENTER);
-                    m_state = CodepointSender::kReset;
-                }
-                break;
-            }
-
-            case CodepointSender::kReset: {
-                m_queue_size = 0;
-                m_next_send = 0;
-                m_index = 0;
-                m_state = CodepointSender::kSendLeader;
-                return true;
-            }
+        } else {
+            // No more keys to send
+            m_queue_size = 0;
+            m_next_send = 0;
+            m_index = 0;
+            return true;
         }
 
         return false;
     }
 
 private:
-
     void send_key(uint8_t keycode, uint8_t modifiers = 0)
     {
         m_keymap[0] = keycode;
@@ -224,19 +213,21 @@ private:
         m_waiting = true;
     }
 
-    enum State {
-        kSendLeader,
-        kSendKeys,
-        kReset
+    struct KeyPress {
+        KeyPress() : keycode(0), modifiers(0) {}
+        KeyPress(uint8_t keycode) : keycode(keycode), modifiers(0) {}
+        KeyPress(uint8_t keycode, uint8_t modifiers) : keycode(keycode), modifiers(modifiers) {}
+
+        uint8_t keycode;
+        uint8_t modifiers;
     };
 
-    absolute_time_t m_next_send = 0;
+    absolute_time_t m_next_send = nil_time;
 
     uint32_t m_index = 0;
     uint32_t m_queue_size = 0;
-    uint8_t m_key_queue[32] = {};
+    KeyPress m_key_queue[16];
     uint8_t m_keymap[6] = {};
-    State m_state = CodepointSender::kSendLeader;
     bool m_waiting = false;
     bool m_needs_release = false;
 };
