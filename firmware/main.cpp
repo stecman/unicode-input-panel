@@ -119,6 +119,7 @@ private:
     bool m_handled = true;
 };
 
+
 // Use keycode conversion table provided by the Pico SDK
 static constexpr size_t kAsciiToKeycodeLength = 128;
 static constexpr uint8_t kAsciiToKeycode[kAsciiToKeycodeLength][2] = { HID_ASCII_TO_KEYCODE };
@@ -140,6 +141,7 @@ public:
             if (keycode != 0) {
                 uint8_t modifiers = kAsciiToKeycode[codepoint][indexShift] ? KEYBOARD_MODIFIER_LEFTSHIFT : 0;
                 m_key_queue[m_queue_size++] = KeyPress(keycode, modifiers);
+                start_sending();
                 return;
             }
         }
@@ -161,16 +163,13 @@ public:
 
         // Finish sequence with enter
         m_key_queue[m_queue_size++] = KeyPress(HID_KEY_ENTER);
+
+        start_sending();
     }
 
     // Returns true when sending has completed
     bool update()
     {
-        if (m_queue_size == 0) {
-            // Nothing to do - not sending
-            return false;
-        }
-
         if (m_waiting && !usb_last_report_sent()) {
             // Waiting between reports
             return false;
@@ -179,12 +178,14 @@ public:
         m_waiting = false;
 
         if (m_needs_release) {
-            // Send a report with the last keys released
-            m_keymap[0] = 0;
-            usb_set_key_report(m_keymap, 0);
-            m_needs_release = false;
-            m_waiting = true;
+            // Send a report with the previous key press released
+            send_release();
             return false;
+        }
+
+        if (m_queue_size == 0) {
+            // Stop sending
+            return true;
         }
 
         // Send next key press, or reset
@@ -195,8 +196,9 @@ public:
         } else {
             // No more keys to send
             m_queue_size = 0;
-            m_next_send = 0;
             m_index = 0;
+
+            // Stop sending
             return true;
         }
 
@@ -204,12 +206,35 @@ public:
     }
 
 private:
+    void start_sending()
+    {
+        // Start sending keys if it's not running yet
+        if (m_send_timer.alarm_id == 0) {
+            add_repeating_timer_ms(5, key_send_callback, this, &m_send_timer);
+            update();
+        }
+    }
+
+    static bool key_send_callback(struct repeating_timer *t)
+    {
+        auto* sender = reinterpret_cast<CodepointSender*>(t->user_data);
+        return !sender->update(); // Update and cancel if no more to send
+    }
+
     void send_key(uint8_t keycode, uint8_t modifiers = 0)
     {
         m_keymap[0] = keycode;
         usb_set_key_report(m_keymap, modifiers);
 
         m_needs_release = true;
+        m_waiting = true;
+    }
+
+    void send_release()
+    {
+        m_keymap[0] = 0;
+        usb_set_key_report(m_keymap, 0);
+        m_needs_release = false;
         m_waiting = true;
     }
 
@@ -222,23 +247,29 @@ private:
         uint8_t modifiers;
     };
 
-    absolute_time_t m_next_send = nil_time;
+    struct repeating_timer m_send_timer;
 
     uint32_t m_index = 0;
     uint32_t m_queue_size = 0;
     KeyPress m_key_queue[16];
-    uint8_t m_keymap[6] = {};
     bool m_waiting = false;
     bool m_needs_release = false;
+
+    uint8_t m_keymap[6]= {0, 0, 0, 0, 0, 0};
 };
 
-bool background_usb_poll(struct repeating_timer *t) {
+
+bool background_usb_poll(struct repeating_timer *t)
+{
     usb_poll();
     return true;
 }
 
 int main()
 {
+    static MainUI app;
+    static CodepointSender sender;
+
     usb_init();
     stdio_usb_init();
 
@@ -303,7 +334,6 @@ int main()
 
     // Start the application
     // Temporarily polls usb from an interrupt as app.load() blocks for a while
-    MainUI app;
     {
         struct repeating_timer timer;
         add_repeating_timer_ms(5, background_usb_poll, NULL, &timer);
@@ -335,14 +365,8 @@ int main()
     UserInput modeclear_switch(PIN_SWITCH_MODECLEAR);
     UserInput send_switch(PIN_SWITCH_SEND);
 
-    CodepointSender sender;
-
     while (true) {
         usb_poll();
-
-        if (sender.update()) {
-            app.flush_buffer();
-        }
 
         if (needs_render) {
             needs_render = false;
