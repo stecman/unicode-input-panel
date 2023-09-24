@@ -254,9 +254,8 @@ else()
 	)
 
 	add_definitions(-DPICO_MALLOC_PANIC=0)
-
-	# pico_enable_stdio_uart(firmware ENABLED)
 	pico_enable_stdio_usb(firmware ENABLED)
+	pico_enable_stdio_uart(firmware ENABLED)
 	pico_add_extra_outputs(firmware) # Create map/bin/hex/uf2 file in addition to ELF
 
 	# Show firmware size stats after build

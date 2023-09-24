@@ -77,8 +77,10 @@ void usb_poll(void)
     const uint32_t interval_ms = 5;
     static uint32_t start_ms = 0;
 
-    if (board_millis() - start_ms < interval_ms)
+    if (board_millis() - start_ms < interval_ms) {
         return; // not enough time
+    }
+
     start_ms += interval_ms;
 
     if (!tud_hid_ready()) {

@@ -7,6 +7,7 @@
 #include "hardware/pwm.h"
 #include "hardware/spi.h"
 #include "hardware/uart.h"
+#include "pico/stdio_usb.h"
 #include "pico/stdlib.h"
 #include "pico/time.h"
 
@@ -240,10 +241,15 @@ private:
     bool m_needs_release = false;
 };
 
+bool background_usb_poll(struct repeating_timer *t) {
+    usb_poll();
+    return true;
+}
 
 int main()
 {
-    stdio_uart_init_full(uart0, 115200, PIN_UART_DEBUG_TX, -1);
+    usb_init();
+    stdio_usb_init();
 
     printf("\n\nDevice has reset\n");
 
@@ -305,8 +311,16 @@ int main()
     st7789_vertical_scroll(300);
 
     // Start the application
+    // Temporarily polls usb from an interrupt as app.load() blocks for a while
     MainUI app;
-    app.load("fonts");
+    {
+        struct repeating_timer timer;
+        add_repeating_timer_ms(5, background_usb_poll, NULL, &timer);
+
+        app.load("fonts");
+
+        cancel_repeating_timer(&timer);
+    }
 
     // Turn on data input LEDs (inverted as this drives a P-channel mosfet)
     {
@@ -331,9 +345,6 @@ int main()
     UserInput send_switch(PIN_SWITCH_SEND);
 
     CodepointSender sender;
-
-    // Configure USB now the device is ready
-    usb_init();
 
     while (true) {
         usb_poll();
