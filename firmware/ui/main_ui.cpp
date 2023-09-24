@@ -10,7 +10,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#if !PICO_ON_DEVICE
+#if PICO_ON_DEVICE
+#include "pico/time.h"
+#else
 #include <unistd.h>
 #define sleep_ms(x)usleep(x * 1000);
 #endif

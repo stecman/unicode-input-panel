@@ -12,6 +12,7 @@
 
 #include "hardware/dma.h"
 #include "hardware/gpio.h"
+#include "pico/time.h"
 
 #define ST7789_NOP 0x00
 #define ST7789_SWRESET 0x01

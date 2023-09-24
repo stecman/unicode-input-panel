@@ -70,7 +70,7 @@ public:
                 m_handled = false;
                 m_long_press = make_timeout_time_ms(400);
             } else {
-                m_long_press = 0;
+                m_long_press = nil_time;
             }
         }
     }
@@ -89,7 +89,7 @@ public:
     // Read and clear the long press state
     bool was_long_pressed()
     {
-        if (!m_handled && m_long_press != 0 && get_absolute_time() > m_long_press) {
+        if (!m_handled && m_long_press != nil_time && get_absolute_time() > m_long_press) {
             m_long_press = 0;
             m_handled = true;
             return true;
@@ -101,7 +101,7 @@ public:
     // Read and clear the short press state
     bool was_short_pressed()
     {
-        if (!m_handled && m_long_press == 0) {
+        if (!m_handled && m_long_press == nil_time) {
             m_handled = true;
             return true;
         }
@@ -113,7 +113,7 @@ private:
     uint32_t m_gpio;
 
     // Time to trigger a long press, or zero if not pressed
-    absolute_time_t m_long_press = 0;
+    absolute_time_t m_long_press = nil_time;
     bool m_pressed = false;
     bool m_handled = true;
 };
